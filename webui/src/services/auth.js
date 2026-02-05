@@ -28,7 +28,7 @@ export function setUsername(username) {
 
 export async function login(username) {
   try {
-    const response = await fetch('/session', {
+    const response = await fetch(__API_URL__ + '/session', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

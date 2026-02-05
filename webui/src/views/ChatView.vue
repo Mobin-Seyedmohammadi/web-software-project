@@ -24,7 +24,7 @@
           <div v-if="!isSentByMe(msg)" class="message-sender">{{ msg.senderName }}</div>
           <div class="message-bubble">
             <div v-if="msg.textContent" class="message-text">{{ msg.textContent }}</div>
-            <img v-if="msg.photoUrl" :src="msg.photoUrl" class="message-photo" />
+            <img v-if="msg.photoUrl" :src="getPhotoUrl(msg.photoUrl)" class="message-photo" />
             <div class="message-meta">
               <span class="message-time">{{ formatTime(msg.sentAt) }}</span>
               <span v-if="isSentByMe(msg)" class="message-status">{{ getStatusIcon(msg.deliveryStatus) }}</span>
@@ -73,11 +73,22 @@ export default {
       loading: true,
       messageText: '',
       selectedFile: null,
-      currentUsername: getUsername()
+      currentUsername: getUsername(),
+      refreshInterval: null
     }
   },
   mounted() {
     this.loadConversation()
+    // Set up auto-refresh every 2 seconds
+    this.refreshInterval = setInterval(() => {
+      this.checkForNewMessages()
+    }, 2000)
+  },
+  beforeUnmount() {
+    // Clean up interval when component is destroyed
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval)
+    }
   },
   methods: {
     async loadConversation() {
@@ -86,7 +97,13 @@ export default {
         const conversationId = this.$route.params.conversationId
         const data = await getConversation(conversationId)
         this.conversation = data
-        this.messages = (data.messages || []).reverse()
+        // API returns messages in reverse chronological (newest first), sort by timestamp (oldest first)
+        const messages = data.messages || []
+        this.messages = messages.sort((a, b) => {
+          const timeA = new Date(a.sentAt).getTime()
+          const timeB = new Date(b.sentAt).getTime()
+          return timeA - timeB
+        })
         this.$nextTick(() => {
           this.scrollToBottom()
         })
@@ -94,6 +111,51 @@ export default {
         console.error('Failed to load conversation:', error)
       } finally {
         this.loading = false
+      }
+    },
+    async checkForNewMessages() {
+      if (this.loading) return // Don't refresh while initial load is happening
+      
+      try {
+        const conversationId = this.$route.params.conversationId
+        const data = await getConversation(conversationId)
+        
+        // Get current message count for comparison
+        const previousCount = this.messages.length
+        
+        // Sort messages by timestamp (oldest first)
+        const messages = data.messages || []
+        const sortedMessages = messages.sort((a, b) => {
+          const timeA = new Date(a.sentAt).getTime()
+          const timeB = new Date(b.sentAt).getTime()
+          return timeA - timeB
+        })
+        
+        // Check if there are new messages
+        if (sortedMessages.length > previousCount || 
+            (sortedMessages.length > 0 && this.messages.length > 0 && 
+             sortedMessages[sortedMessages.length - 1].messageId !== this.messages[this.messages.length - 1].messageId)) {
+          
+          // Replace messages with properly sorted list
+          this.messages = sortedMessages
+          
+          // Update conversation info
+          this.conversation = data
+          
+          // Auto-scroll if user is near bottom
+          this.$nextTick(() => {
+            const container = this.$refs.messagesContainer
+            if (container) {
+              const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
+              if (isNearBottom) {
+                this.scrollToBottom()
+              }
+            }
+          })
+        }
+      } catch (error) {
+        // Silently fail on refresh errors to avoid spamming console
+        console.debug('Failed to refresh messages:', error)
       }
     },
     async sendMessage() {
@@ -143,6 +205,13 @@ export default {
         default:
           return ''
       }
+    },
+    getPhotoUrl(photoUrl) {
+      if (!photoUrl) return null
+      if (photoUrl.startsWith('/')) {
+        return __API_URL__ + photoUrl
+      }
+      return photoUrl
     },
     scrollToBottom() {
       const container = this.$refs.messagesContainer

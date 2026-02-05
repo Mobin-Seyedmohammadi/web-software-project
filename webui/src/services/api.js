@@ -16,7 +16,7 @@ function getHeaders(includeAuth = true) {
 }
 
 export async function searchUsers(query = '') {
-  const url = query ? `/users?query=${encodeURIComponent(query)}` : '/users'
+  const url = query ? `${__API_URL__}/users?query=${encodeURIComponent(query)}` : `${__API_URL__}/users`
   const response = await fetch(url, {
     headers: getHeaders()
   })
@@ -29,7 +29,7 @@ export async function searchUsers(query = '') {
 }
 
 export async function updateUsername(newUsername) {
-  const response = await fetch('/users/me/username', {
+  const response = await fetch(`${__API_URL__}/users/me/username`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify({ username: newUsername })
@@ -48,7 +48,7 @@ export async function uploadUserPhoto(file) {
   formData.append('photo', file)
 
   const token = getAuthToken()
-  const response = await fetch('/users/me/photo', {
+  const response = await fetch(`${__API_URL__}/users/me/photo`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`
@@ -64,7 +64,7 @@ export async function uploadUserPhoto(file) {
 }
 
 export async function getConversations() {
-  const response = await fetch('/conversations', {
+  const response = await fetch(`${__API_URL__}/conversations`, {
     headers: getHeaders()
   })
 
@@ -76,7 +76,7 @@ export async function getConversations() {
 }
 
 export async function getConversation(conversationId) {
-  const response = await fetch(`/conversations/${conversationId}`, {
+  const response = await fetch(`${__API_URL__}/conversations/${conversationId}`, {
     headers: getHeaders()
   })
 
@@ -88,7 +88,7 @@ export async function getConversation(conversationId) {
 }
 
 export async function createConversation(userId) {
-  const response = await fetch('/conversations', {
+  const response = await fetch(`${__API_URL__}/conversations`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ userId })
@@ -115,7 +115,7 @@ export async function sendMessage(conversationId, content, photo = null, replyTo
   }
 
   const token = getAuthToken()
-  const response = await fetch(`/conversations/${conversationId}/messages`, {
+  const response = await fetch(`${__API_URL__}/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`
@@ -131,7 +131,7 @@ export async function sendMessage(conversationId, content, photo = null, replyTo
 }
 
 export async function deleteMessage(messageId) {
-  const response = await fetch(`/messages/${messageId}`, {
+  const response = await fetch(`${__API_URL__}/messages/${messageId}`, {
     method: 'DELETE',
     headers: getHeaders()
   })
@@ -142,7 +142,7 @@ export async function deleteMessage(messageId) {
 }
 
 export async function forwardMessage(messageId, targetConversationId) {
-  const response = await fetch(`/messages/${messageId}/forward`, {
+  const response = await fetch(`${__API_URL__}/messages/${messageId}/forward`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ targetConversationId })
@@ -156,7 +156,7 @@ export async function forwardMessage(messageId, targetConversationId) {
 }
 
 export async function addReaction(messageId, emoticon) {
-  const response = await fetch(`/messages/${messageId}/comments`, {
+  const response = await fetch(`${__API_URL__}/messages/${messageId}/comments`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ emoticon })
@@ -170,7 +170,7 @@ export async function addReaction(messageId, emoticon) {
 }
 
 export async function removeReaction(messageId, reactionId) {
-  const response = await fetch(`/messages/${messageId}/comments/${reactionId}`, {
+  const response = await fetch(`${__API_URL__}/messages/${messageId}/comments/${reactionId}`, {
     method: 'DELETE',
     headers: getHeaders()
   })
@@ -181,7 +181,7 @@ export async function removeReaction(messageId, reactionId) {
 }
 
 export async function createGroup(name, memberIds) {
-  const response = await fetch('/groups', {
+  const response = await fetch(`${__API_URL__}/groups`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ name, memberIds })
@@ -195,7 +195,7 @@ export async function createGroup(name, memberIds) {
 }
 
 export async function addGroupMember(groupId, userId) {
-  const response = await fetch(`/groups/${groupId}/members`, {
+  const response = await fetch(`${__API_URL__}/groups/${groupId}/members`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({ userId })
@@ -209,7 +209,7 @@ export async function addGroupMember(groupId, userId) {
 }
 
 export async function leaveGroup(groupId) {
-  const response = await fetch(`/groups/${groupId}/members/me`, {
+  const response = await fetch(`${__API_URL__}/groups/${groupId}/members/me`, {
     method: 'DELETE',
     headers: getHeaders()
   })
@@ -220,7 +220,7 @@ export async function leaveGroup(groupId) {
 }
 
 export async function updateGroupName(groupId, name) {
-  const response = await fetch(`/groups/${groupId}/name`, {
+  const response = await fetch(`${__API_URL__}/groups/${groupId}/name`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify({ name })
@@ -238,7 +238,7 @@ export async function uploadGroupPhoto(groupId, file) {
   formData.append('photo', file)
 
   const token = getAuthToken()
-  const response = await fetch(`/groups/${groupId}/photo`, {
+  const response = await fetch(`${__API_URL__}/groups/${groupId}/photo`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`
