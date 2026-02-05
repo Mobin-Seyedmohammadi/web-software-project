@@ -4,10 +4,10 @@
       <div class="header-content">
         <h1>WASAText</h1>
         <div class="header-actions">
-          <button @click="showNewChatModal = true" class="btn btn-primary">New Chat</button>
-          <button @click="showNewGroupModal = true" class="btn btn-secondary">New Group</button>
-          <button @click="goToProfile" class="btn btn-secondary">Profile</button>
-          <button @click="handleLogout" class="btn btn-secondary">Logout</button>
+          <button @click="showNewChatModal = true" class="btn btn-primary">💬 New Chat</button>
+          <button @click="showNewGroupModal = true" class="btn btn-secondary">👥 New Group</button>
+          <button @click="goToProfile" class="btn btn-secondary">⚙️ Profile</button>
+          <button @click="handleLogout" class="btn btn-secondary">🚪 Logout</button>
         </div>
       </div>
     </div>
@@ -28,7 +28,7 @@
           @click="openConversation(conv.conversationId)"
         >
           <div class="conversation-avatar">
-            <div class="avatar">{{ getInitial(conv.displayName) }}</div>
+            <div class="avatar" :style="{ background: getAvatarColor(conv.displayName) }">{{ getInitial(conv.displayName) }}</div>
           </div>
           <div class="conversation-content">
             <div class="conversation-header">
@@ -66,7 +66,7 @@
               class="search-result-item"
               @click="startConversation(user.identifier)"
             >
-              <div class="avatar avatar-sm">{{ getInitial(user.username) }}</div>
+              <div class="avatar avatar-sm" :style="{ background: getAvatarColor(user.username) }">{{ getInitial(user.username) }}</div>
               <span>{{ user.username }}</span>
             </div>
           </div>
@@ -108,7 +108,7 @@
               class="search-result-item"
               @click="toggleMember(user)"
             >
-              <div class="avatar avatar-sm">{{ getInitial(user.username) }}</div>
+              <div class="avatar avatar-sm" :style="{ background: getAvatarColor(user.username) }">{{ getInitial(user.username) }}</div>
               <span>{{ user.username }}</span>
               <span v-if="isSelectedMember(user.identifier)">✓</span>
             </div>
@@ -182,6 +182,21 @@ export default {
     },
     getInitial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'
+    },
+    getAvatarColor(name) {
+      const colors = [
+        'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+        'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)',
+        'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+        'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
+        'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+        'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+        'linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%)',
+        'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)'
+      ]
+      if (!name) return colors[0]
+      const index = name.charCodeAt(0) % colors.length
+      return colors[index]
     },
     formatTime(timestamp) {
       const date = new Date(timestamp)
@@ -273,59 +288,75 @@ export default {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--secondary-color);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
 .app-header {
-  background: var(--bg-white);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-color);
-  padding: 16px 24px;
-  box-shadow: var(--shadow);
+  padding: 20px 32px;
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .header-content h1 {
-  font-size: 24px;
-  color: var(--primary-color);
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
 }
 
 .header-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .conversations-container {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
 }
 
 .conversations-list {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
 .conversation-item {
-  background: var(--bg-white);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
   display: flex;
-  gap: 12px;
+  gap: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 .conversation-item:hover {
-  background: var(--bg-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--primary-light);
 }
 
 .conversation-content {
@@ -341,14 +372,17 @@ export default {
 }
 
 .conversation-name {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-primary);
+  margin-bottom: 2px;
 }
 
 .conversation-time {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .conversation-preview {
@@ -357,37 +391,59 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   color: var(--text-secondary);
+}
+
+.empty-state p {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
 .empty-state-subtitle {
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 15px;
+  color: var(--text-muted);
 }
 
 .search-results {
-  margin-top: 12px;
+  margin-top: 16px;
   max-height: 300px;
   overflow-y: auto;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  padding: 8px;
 }
 
 .search-result-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--bg-white);
+  margin-bottom: 6px;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-result-item:hover {
-  background: var(--bg-hover);
+  background: var(--primary-color);
+  color: white;
+  transform: translateX(4px);
+  box-shadow: var(--shadow-md);
+}
+
+.search-result-item:last-child {
+  margin-bottom: 0;
 }
 
 .selected-members {
@@ -410,20 +466,39 @@ export default {
 .selected-member-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--primary-color);
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
   color: white;
-  border-radius: 16px;
+  border-radius: 20px;
   font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+
+.selected-member-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .selected-member-tag button {
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.selected-member-tag button:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 </style>

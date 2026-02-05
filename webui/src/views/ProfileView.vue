@@ -11,7 +11,7 @@
         <div class="profile-section">
           <h2>Your Information</h2>
           <div class="profile-info">
-            <div class="avatar avatar-lg">{{ getInitial(currentUsername) }}</div>
+            <div class="avatar avatar-lg" :style="{ background: getAvatarColor(currentUsername) }">{{ getInitial(currentUsername) }}</div>
             <p class="current-username">{{ currentUsername }}</p>
           </div>
         </div>
@@ -33,20 +33,6 @@
           </button>
         </div>
 
-        <div class="profile-section">
-          <h3>Update Profile Photo</h3>
-          <input
-            ref="photoInput"
-            type="file"
-            accept="image/*"
-            style="display: none"
-            @change="handlePhotoSelect"
-          />
-          <button @click="$refs.photoInput.click()" class="btn btn-secondary" :disabled="uploading">
-            {{ uploading ? 'Uploading...' : 'Choose Photo' }}
-          </button>
-        </div>
-
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </div>
@@ -60,7 +46,7 @@
 </template>
 
 <script>
-import { updateUsername as apiUpdateUsername, uploadUserPhoto } from '../services/api'
+import { updateUsername as apiUpdateUsername } from '../services/api'
 import { getUsername, setUsername } from '../services/auth'
 
 export default {
@@ -71,8 +57,7 @@ export default {
       newUsername: '',
       errorMessage: '',
       successMessage: '',
-      updating: false,
-      uploading: false
+      updating: false
     }
   },
   methods: {
@@ -98,25 +83,23 @@ export default {
         this.updating = false
       }
     },
-    async handlePhotoSelect(event) {
-      const file = event.target.files[0]
-      if (!file) return
-
-      this.errorMessage = ''
-      this.successMessage = ''
-      this.uploading = true
-
-      try {
-        await uploadUserPhoto(file)
-        this.successMessage = 'Photo updated successfully!'
-      } catch (error) {
-        this.errorMessage = error.message || 'Failed to upload photo'
-      } finally {
-        this.uploading = false
-      }
-    },
     getInitial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'
+    },
+    getAvatarColor(name) {
+      const colors = [
+        'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+        'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)',
+        'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+        'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
+        'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+        'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+        'linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%)',
+        'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)'
+      ]
+      if (!name) return colors[0]
+      const index = name.charCodeAt(0) % colors.length
+      return colors[index]
     },
     goBack() {
       this.$router.push('/')
@@ -130,36 +113,47 @@ export default {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--secondary-color);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
 .profile-header {
-  background: var(--bg-white);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-color);
-  padding: 16px 24px;
+  padding: 20px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .profile-header h1 {
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .profile-container {
   flex: 1;
   overflow-y: auto;
-  padding: 40px 20px;
+  padding: 48px 24px;
 }
 
 .profile-card {
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
-  background: var(--bg-white);
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
 .profile-section {
@@ -185,13 +179,17 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
+  gap: 20px;
+  padding: 32px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border-radius: var(--radius-lg);
+  margin-bottom: 32px;
 }
 
 .current-username {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.5px;
 }
 </style>

@@ -3,7 +3,7 @@
     <div class="chat-header">
       <button @click="goBack" class="btn btn-secondary">← Back</button>
       <div v-if="conversation" class="chat-title">
-        <div class="avatar avatar-sm">{{ getInitial(conversation.displayName) }}</div>
+        <div class="avatar avatar-sm" :style="{ background: getAvatarColor(conversation.displayName) }">{{ getInitial(conversation.displayName) }}</div>
         <h2>{{ conversation.displayName }}</h2>
       </div>
       <div></div>
@@ -54,8 +54,11 @@
         style="display: none"
         @change="handleFileSelect"
       />
-      <button @click="$refs.fileInput.click()" class="btn btn-secondary">📷</button>
-      <button @click="sendMessage" class="btn btn-primary">Send</button>
+      <button @click="$refs.fileInput.click()" class="btn btn-secondary" title="Attach photo">📷</button>
+      <button @click="sendMessage" class="btn btn-primary" :disabled="!messageText.trim() && !selectedFile">
+        <span v-if="messageText.trim() || selectedFile">Send</span>
+        <span v-else>✉️</span>
+      </button>
     </div>
   </div>
 </template>
@@ -190,6 +193,21 @@ export default {
     getInitial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'
     },
+    getAvatarColor(name) {
+      const colors = [
+        'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
+        'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)',
+        'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+        'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
+        'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+        'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+        'linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%)',
+        'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)'
+      ]
+      if (!name) return colors[0]
+      const index = name.charCodeAt(0) % colors.length
+      return colors[index]
+    },
     formatTime(timestamp) {
       const date = new Date(timestamp)
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -231,48 +249,71 @@ export default {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--secondary-color);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
 .chat-header {
-  background: var(--bg-white);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-color);
-  padding: 16px 24px;
+  padding: 18px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .chat-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .chat-title h2 {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
 }
 
 .messages-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .message {
   display: flex;
   flex-direction: column;
-  max-width: 70%;
+  max-width: 75%;
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-sent {
@@ -284,82 +325,116 @@ export default {
 }
 
 .message-sender {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  padding-left: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  padding-left: 12px;
+  font-weight: 500;
 }
 
 .message-bubble {
   background: var(--message-received);
-  border-radius: 18px;
-  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  padding: 12px 18px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
 }
 
 .message-sent .message-bubble {
-  background: var(--message-sent);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   color: white;
+  box-shadow: var(--shadow-md);
 }
 
 .message-text {
   word-wrap: break-word;
+  line-height: 1.5;
+  font-size: 15px;
 }
 
 .message-photo {
   max-width: 100%;
-  border-radius: 8px;
-  margin-top: 4px;
+  max-height: 400px;
+  border-radius: var(--radius);
+  margin-top: 8px;
+  box-shadow: var(--shadow-md);
+  object-fit: cover;
 }
 
 .message-meta {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  font-size: 11px;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
 }
 
 .message-sent .message-meta {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .message-received .message-meta {
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .message-reactions {
   display: flex;
-  gap: 4px;
-  margin-top: 4px;
-  padding-left: 8px;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 12px;
+  flex-wrap: wrap;
 }
 
 .reaction {
-  font-size: 16px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.reaction:hover {
+  transform: scale(1.2);
 }
 
 .message-input-container {
-  background: var(--bg-white);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-color);
-  padding: 16px 24px;
+  padding: 20px 28px;
   display: flex;
   gap: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  bottom: 0;
 }
 
 .message-input {
   flex: 1;
+  font-size: 15px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   color: var(--text-secondary);
+}
+
+.empty-state p {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
 .empty-state-subtitle {
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 15px;
+  color: var(--text-muted);
 }
 </style>
