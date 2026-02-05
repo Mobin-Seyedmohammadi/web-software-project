@@ -1,0 +1,21 @@
+# WASAText Configuration File
+# This is an example configuration for development/demo purposes
+
+# Server configuration
+server:
+  port: 3000
+  host: "0.0.0.0"
+  
+# Database configuration
+database:
+  path: "./wasatext.db"
+  
+# Photo storage
+photos:
+  directory: "./photos"
+  max_size_mb: 50
+
+# Logging
+logging:
+  level: "debug"
+  format: "text"  # text or json

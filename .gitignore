@@ -1,0 +1,40 @@
+# IDE
+.vscode/
+.idea/
+.cursor/
+
+# Go
+bin/
+wasatext-server
+webapi
+healthcheck
+*.exe
+*.test
+*.prof
+
+# Node/Vite
+webui/node_modules/
+webui/dist/
+webui/.vite/
+
+# Yarn (keep .yarn and .yarnrc.yml for offline mirror)
+webui/.pnp.*
+webui/.yarn/*
+!webui/.yarn/cache
+!webui/.yarn/patches
+!webui/.yarn/plugins
+!webui/.yarn/releases
+!webui/.yarn/sdks
+!webui/.yarn/versions
+
+# Database & Uploads
+data/
+photos/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db

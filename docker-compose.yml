@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Go Backend API Server
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - wasatext-data:/data
+      - wasatext-photos:/app/photos
+    environment:
+      - PORT=3000
+      - DB_PATH=/data/wasatext.db
+    restart: unless-stopped
+
+  # Frontend (Vue.js served by nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  wasatext-data:
+  wasatext-photos:
