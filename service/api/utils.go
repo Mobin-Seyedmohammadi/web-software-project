@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gofrs/uuid"
+	"github.com/yourname/wasatext/service/db"
 )
 
 func (h *APIHandler) errorResponse(w http.ResponseWriter, statusCode int, message string) {
@@ -28,6 +29,22 @@ func (h *APIHandler) jsonResponse(w http.ResponseWriter, statusCode int, data in
 		if err := json.NewEncoder(w).Encode(data); err != nil {
 			h.logger.WithError(err).Error("Failed to encode JSON response")
 		}
+	}
+}
+
+// postSystemMessage records a group-event announcement (join/leave/rename/
+// photo change) as a chat message so it shows up in the conversation
+// timeline. Best-effort: a failure here logs but doesn't fail the caller's
+// primary operation, which has already succeeded.
+func (h *APIHandler) postSystemMessage(conversationID, actorID, text string) {
+	_, err := h.database.PostMessage(&db.Message{
+		ConversationID: conversationID,
+		SenderID:       actorID,
+		TextContent:    &text,
+		MessageType:    db.MessageTypeSystem,
+	})
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to post system message")
 	}
 }
 

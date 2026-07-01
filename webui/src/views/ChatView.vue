@@ -45,11 +45,16 @@
         <p>No messages yet. Say hello!</p>
       </div>
       <div v-else class="messages-list">
-        <div
-          v-for="msg in messages"
-          :key="msg.messageId"
-          :class="['msg-row', isMine(msg) ? 'mine' : 'theirs']"
-        >
+        <template v-for="msg in messages" :key="msg.messageId">
+          <!-- System message: group event announcements -->
+          <div v-if="msg.messageType === 'system'" class="system-msg">
+            {{ msg.textContent }}
+          </div>
+
+          <div
+            v-else
+            :class="['msg-row', isMine(msg) ? 'mine' : 'theirs']"
+          >
           <!-- Sender label for group received messages -->
           <div v-if="!isMine(msg) && isGroup" class="sender-label">{{ msg.senderName }}</div>
 
@@ -104,7 +109,8 @@
             <span v-for="e in emojis" :key="e" class="emoji-opt" @click="react(msg.messageId, e)">{{ e }}</span>
             <button class="emoji-close" @click="emojiPickerFor = null">&#x2715;</button>
           </div>
-        </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -204,6 +210,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Confirmation modal -->
+    <div v-if="confirmDialog.show" class="modal-overlay" @click.self="resolveConfirm(false)">
+      <div class="modal">
+        <div class="modal-hdr">
+          <h3>Please confirm</h3>
+          <button @click="resolveConfirm(false)">&#x2715;</button>
+        </div>
+        <div class="modal-body">
+          <p>{{ confirmDialog.message }}</p>
+        </div>
+        <div class="modal-ftr">
+          <button class="btn btn-secondary" @click="resolveConfirm(false)">Cancel</button>
+          <button class="btn btn-danger" @click="resolveConfirm(true)">Confirm</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -215,6 +238,7 @@ import {
   updateGroupName as apiRename, uploadGroupPhoto as apiGroupPhoto
 } from '../services/api'
 import { getUserId, getUsername } from '../services/auth'
+import { showToast } from '../services/toast'
 
 export default {
   name: 'ChatView',
@@ -243,6 +267,8 @@ export default {
       memberResults: [],
       showRename: false,
       newGroupName: '',
+
+      confirmDialog: { show: false, message: '', onConfirm: null },
     }
   },
   computed: {
@@ -318,7 +344,7 @@ export default {
         this.$nextTick(this.scrollBottom)
         this.silentRefresh()
       } catch (e) {
-        alert('Failed to send message: ' + (e.message || ''))
+        showToast('Failed to send message: ' + (e.message || ''), 'error')
       }
     },
     onFileSelected(e) {
@@ -359,9 +385,9 @@ export default {
       try {
         await apiForward(this.forwardingMsg.messageId, targetId)
         this.forwardingMsg = null
-        alert('Message forwarded!')
+        showToast('Message forwarded!', 'success')
       } catch (e) {
-        alert('Failed to forward: ' + (e.message || ''))
+        showToast('Failed to forward: ' + (e.message || ''), 'error')
       }
     },
     async react(msgId, emoji) {
@@ -370,7 +396,7 @@ export default {
         await apiReact(msgId, emoji)
         await this.silentRefresh()
       } catch (e) {
-        alert('Failed to react: ' + (e.message || ''))
+        showToast('Failed to react: ' + (e.message || ''), 'error')
       }
     },
     async removeMyReaction(msgId, reactionId) {
@@ -378,18 +404,19 @@ export default {
         await apiUnreact(msgId, reactionId)
         await this.silentRefresh()
       } catch (e) {
-        alert('Failed to remove reaction: ' + (e.message || ''))
+        showToast('Failed to remove reaction: ' + (e.message || ''), 'error')
       }
     },
-    async deleteMsg(id) {
-      if (!confirm('Delete this message?')) return
-      try {
-        await apiDelete(id)
-        this.messages = this.messages.filter(m => m.messageId !== id)
-        this.activeMsg = null
-      } catch (e) {
-        alert('Failed to delete: ' + (e.message || ''))
-      }
+    deleteMsg(id) {
+      this.askConfirm('Delete this message?', async () => {
+        try {
+          await apiDelete(id)
+          this.messages = this.messages.filter(m => m.messageId !== id)
+          this.activeMsg = null
+        } catch (e) {
+          showToast('Failed to delete: ' + (e.message || ''), 'error')
+        }
+      })
     },
     openRenameGroup() {
       this.newGroupName = this.conversation?.displayName || ''
@@ -403,7 +430,7 @@ export default {
         this.showRename = false
         await this.silentRefresh()
       } catch (e) {
-        alert('Failed to rename: ' + (e.message || ''))
+        showToast('Failed to rename: ' + (e.message || ''), 'error')
       }
     },
     async uploadGroupPhoto(e) {
@@ -414,7 +441,7 @@ export default {
         await apiGroupPhoto(convId, f)
         await this.silentRefresh()
       } catch (e) {
-        alert('Failed to update photo: ' + (e.message || ''))
+        showToast('Failed to update photo: ' + (e.message || ''), 'error')
       }
       e.target.value = ''
     },
@@ -433,20 +460,29 @@ export default {
         this.memberSearch = ''
         this.memberResults = []
         await this.load()
-        alert('Member added!')
+        showToast('Member added!', 'success')
       } catch (e) {
-        alert('Failed to add member: ' + (e.message || ''))
+        showToast('Failed to add member: ' + (e.message || ''), 'error')
       }
     },
-    async confirmLeaveGroup() {
-      if (!confirm('Leave this group?')) return
-      const convId = this.$route.params.conversationId
-      try {
-        await apiLeave(convId)
-        this.$router.push('/')
-      } catch (e) {
-        alert('Failed to leave group: ' + (e.message || ''))
-      }
+    confirmLeaveGroup() {
+      this.askConfirm('Leave this group?', async () => {
+        const convId = this.$route.params.conversationId
+        try {
+          await apiLeave(convId)
+          this.$router.push('/')
+        } catch (e) {
+          showToast('Failed to leave group: ' + (e.message || ''), 'error')
+        }
+      })
+    },
+    askConfirm(message, onConfirm) {
+      this.confirmDialog = { show: true, message, onConfirm }
+    },
+    resolveConfirm(result) {
+      const cb = this.confirmDialog.onConfirm
+      this.confirmDialog = { show: false, message: '', onConfirm: null }
+      if (result && cb) cb()
     },
     resolveUrl(url) {
       if (!url) return ''
@@ -537,6 +573,17 @@ export default {
 .msg-row { display: flex; flex-direction: column; max-width: 75%; position: relative; }
 .msg-row.mine { align-self: flex-end; align-items: flex-end; }
 .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
+
+.system-msg {
+  align-self: center;
+  text-align: center;
+  color: #6b7280;
+  font-size: 12.5px;
+  background: rgba(0,0,0,.04);
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin: 4px 0;
+}
 
 .sender-label { font-size: 12px; color: #6366f1; font-weight: 600; margin-bottom: 2px; padding-left: 4px; }
 

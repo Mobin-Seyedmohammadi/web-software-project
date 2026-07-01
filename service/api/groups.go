@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -90,7 +91,7 @@ func (h *APIHandler) handleAddGroupMember(w http.ResponseWriter, r *http.Request
 	}
 
 	// Check if user exists
-	_, err := h.database.FindUserByID(req.UserID)
+	addedUser, err := h.database.FindUserByID(req.UserID)
 	if err != nil {
 		if err == db.ErrUserNotFound {
 			h.errorResponse(w, http.StatusNotFound, "User not found")
@@ -113,6 +114,9 @@ func (h *APIHandler) handleAddGroupMember(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
+
+	h.postSystemMessage(groupID, currentUser.Identifier,
+		fmt.Sprintf("%s added %s", currentUser.Username, addedUser.Username))
 
 	group, err := h.database.FetchGroupInfo(groupID)
 	if err != nil {
@@ -164,6 +168,9 @@ func (h *APIHandler) handleLeaveGroup(w http.ResponseWriter, r *http.Request, ps
 		return
 	}
 
+	h.postSystemMessage(groupID, currentUser.Identifier,
+		fmt.Sprintf("%s left the group", currentUser.Username))
+
 	h.logger.WithField("groupID", groupID).WithField("userID", currentUser.Identifier).Info("User left group")
 
 	w.WriteHeader(http.StatusNoContent)
@@ -211,6 +218,9 @@ func (h *APIHandler) handleUpdateGroupName(w http.ResponseWriter, r *http.Reques
 		}
 		return
 	}
+
+	h.postSystemMessage(groupID, currentUser.Identifier,
+		fmt.Sprintf("Group renamed to %s", req.Name))
 
 	group, err := h.database.FetchGroupInfo(groupID)
 	if err != nil {
@@ -269,6 +279,9 @@ func (h *APIHandler) handleUploadGroupPhoto(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
+
+	h.postSystemMessage(groupID, currentUser.Identifier,
+		fmt.Sprintf("%s changed the group photo", currentUser.Username))
 
 	group, err := h.database.FetchGroupInfo(groupID)
 	if err != nil {

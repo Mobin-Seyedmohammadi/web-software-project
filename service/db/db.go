@@ -98,9 +98,15 @@ type Message struct {
 	ReplyToID       *string         `json:"replyToId,omitempty"`
 	ReplyPreview    *MessagePreview `json:"replyPreview,omitempty"`
 	ForwardedFromID *string         `json:"forwardedFromId,omitempty"`
+	MessageType     string          `json:"messageType"`
 	DeliveryStatus  string          `json:"deliveryStatus"`
 	Reactions       []*Reaction     `json:"reactions"`
 }
+
+const (
+	MessageTypeUser   = "user"
+	MessageTypeSystem = "system"
+)
 
 type MessagePreview struct {
 	MessageID      string  `json:"messageId"`
@@ -200,6 +206,7 @@ func (db *SQLiteDatabase) initialize() error {
 		photo_url TEXT,
 		reply_to_id TEXT,
 		forwarded_from_id TEXT,
+		message_type TEXT NOT NULL DEFAULT 'user',
 		sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
 		FOREIGN KEY (sender_id) REFERENCES users(identifier) ON DELETE CASCADE
@@ -234,6 +241,15 @@ func (db *SQLiteDatabase) initialize() error {
 
 	if _, err := db.conn.Exec(schemaSQL); err != nil {
 		return fmt.Errorf("failed to execute schema SQL: %w", err)
+	}
+
+	// Migrate databases created before message_type existed. SQLite has no
+	// "ADD COLUMN IF NOT EXISTS", so the duplicate-column error is expected
+	// and ignored on databases that already have it.
+	if _, err := db.conn.Exec("ALTER TABLE messages ADD COLUMN message_type TEXT NOT NULL DEFAULT 'user'"); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("failed to migrate messages table: %w", err)
+		}
 	}
 
 	return nil
@@ -560,7 +576,7 @@ func (db *SQLiteDatabase) fetchMessages(conversationID string) ([]*Message, erro
 	query := `
 		SELECT
 			m.id, m.sender_id, u.username, m.text_content, m.photo_url,
-			m.sent_at, m.reply_to_id, m.forwarded_from_id,
+			m.sent_at, m.reply_to_id, m.forwarded_from_id, m.message_type,
 			COALESCE((SELECT COUNT(*) FROM message_delivery md WHERE md.message_id = m.id), 0) as total_r,
 			COALESCE((SELECT COUNT(*) FROM message_delivery md WHERE md.message_id = m.id AND md.received_at IS NOT NULL), 0) as recv_r,
 			COALESCE((SELECT COUNT(*) FROM message_delivery md WHERE md.message_id = m.id AND md.read_at IS NOT NULL), 0) as read_r
@@ -582,7 +598,7 @@ func (db *SQLiteDatabase) fetchMessages(conversationID string) ([]*Message, erro
 		var totalR, recvR, readR int
 
 		if err := rows.Scan(&msg.MessageID, &msg.SenderID, &msg.SenderName,
-			&textContent, &photoURL, &sentAt, &replyTo, &forwardedFrom,
+			&textContent, &photoURL, &sentAt, &replyTo, &forwardedFrom, &msg.MessageType,
 			&totalR, &recvR, &readR); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("failed to scan message: %w", err)
@@ -742,6 +758,9 @@ func (db *SQLiteDatabase) CheckConversationMembership(userID, conversationID str
 func (db *SQLiteDatabase) PostMessage(msg *Message) (*Message, error) {
 	msg.MessageID = newID()
 	msg.SentAt = time.Now().UTC()
+	if msg.MessageType == "" {
+		msg.MessageType = MessageTypeUser
+	}
 
 	var textContent, photoURL, replyTo, forwardedFrom interface{}
 	if msg.TextContent != nil {
@@ -760,9 +779,9 @@ func (db *SQLiteDatabase) PostMessage(msg *Message) (*Message, error) {
 	sentAtStr := msg.SentAt.Format("2006-01-02 15:04:05")
 
 	_, err := db.conn.Exec(`
-		INSERT INTO messages (id, conversation_id, sender_id, text_content, photo_url, reply_to_id, forwarded_from_id, sent_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, msg.MessageID, msg.ConversationID, msg.SenderID, textContent, photoURL, replyTo, forwardedFrom, sentAtStr)
+		INSERT INTO messages (id, conversation_id, sender_id, text_content, photo_url, reply_to_id, forwarded_from_id, message_type, sent_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, msg.MessageID, msg.ConversationID, msg.SenderID, textContent, photoURL, replyTo, forwardedFrom, msg.MessageType, sentAtStr)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to post message: %w", err)
@@ -772,25 +791,29 @@ func (db *SQLiteDatabase) PostMessage(msg *Message) (*Message, error) {
 	// first and the rows closed before issuing the inserts: the connection
 	// pool has only one connection, so an Exec while recipientRows is still
 	// open would deadlock waiting for itself to free up.
-	recipientRows, err := db.conn.Query(
-		"SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id != ?",
-		msg.ConversationID, msg.SenderID,
-	)
-	if err == nil {
-		var recipientIDs []string
-		for recipientRows.Next() {
-			var recipientID string
-			if scanErr := recipientRows.Scan(&recipientID); scanErr == nil {
-				recipientIDs = append(recipientIDs, recipientID)
+	// System messages (join/leave/rename/photo announcements) don't need
+	// read receipts, so they're skipped.
+	if msg.MessageType != MessageTypeSystem {
+		recipientRows, err := db.conn.Query(
+			"SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id != ?",
+			msg.ConversationID, msg.SenderID,
+		)
+		if err == nil {
+			var recipientIDs []string
+			for recipientRows.Next() {
+				var recipientID string
+				if scanErr := recipientRows.Scan(&recipientID); scanErr == nil {
+					recipientIDs = append(recipientIDs, recipientID)
+				}
 			}
-		}
-		recipientRows.Close()
+			recipientRows.Close()
 
-		for _, recipientID := range recipientIDs {
-			_, _ = db.conn.Exec(
-				"INSERT OR IGNORE INTO message_delivery (message_id, recipient_id) VALUES (?, ?)",
-				msg.MessageID, recipientID,
-			)
+			for _, recipientID := range recipientIDs {
+				_, _ = db.conn.Exec(
+					"INSERT OR IGNORE INTO message_delivery (message_id, recipient_id) VALUES (?, ?)",
+					msg.MessageID, recipientID,
+				)
+			}
 		}
 	}
 
@@ -1053,7 +1076,13 @@ func (db *SQLiteDatabase) AddGroupMember(groupID, userID, adderID string) error 
 }
 
 func (db *SQLiteDatabase) RemoveGroupMember(groupID, userID string) error {
-	result, err := db.conn.Exec(
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(
 		"DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?",
 		groupID, userID,
 	)
@@ -1061,12 +1090,29 @@ func (db *SQLiteDatabase) RemoveGroupMember(groupID, userID string) error {
 		return fmt.Errorf("failed to remove group member: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to check affected rows: %w", err)
 	}
-	if rows == 0 {
+	if rowsAffected == 0 {
 		return ErrGroupNotFound
+	}
+
+	// Drop this member's pending delivery records for the conversation. Without
+	// this, a message can never reach "read" once every remaining member has
+	// seen it, because the departed member's unread row still counts toward
+	// the total.
+	if _, err := tx.Exec(
+		`DELETE FROM message_delivery WHERE recipient_id = ? AND message_id IN (
+			SELECT id FROM messages WHERE conversation_id = ?
+		)`,
+		userID, groupID,
+	); err != nil {
+		return fmt.Errorf("failed to clean up delivery records: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	return nil
 }
