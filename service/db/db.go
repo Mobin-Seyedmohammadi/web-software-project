@@ -574,7 +574,6 @@ func (db *SQLiteDatabase) fetchMessages(conversationID string) ([]*Message, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch messages: %w", err)
 	}
-	defer rows.Close()
 
 	messages := []*Message{}
 	for rows.Next() {
@@ -585,6 +584,7 @@ func (db *SQLiteDatabase) fetchMessages(conversationID string) ([]*Message, erro
 		if err := rows.Scan(&msg.MessageID, &msg.SenderID, &msg.SenderName,
 			&textContent, &photoURL, &sentAt, &replyTo, &forwardedFrom,
 			&totalR, &recvR, &readR); err != nil {
+			rows.Close()
 			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}
 
@@ -601,7 +601,6 @@ func (db *SQLiteDatabase) fetchMessages(conversationID string) ([]*Message, erro
 		}
 		if replyTo.Valid {
 			msg.ReplyToID = &replyTo.String
-			msg.ReplyPreview, _ = db.fetchMessageSnippet(replyTo.String)
 		}
 		if forwardedFrom.Valid {
 			msg.ForwardedFromID = &forwardedFrom.String
@@ -615,11 +614,25 @@ func (db *SQLiteDatabase) fetchMessages(conversationID string) ([]*Message, erro
 			msg.DeliveryStatus = "sent"
 		}
 
-		msg.Reactions, _ = db.fetchReactions(msg.MessageID)
 		messages = append(messages, &msg)
 	}
+	rowsErr := rows.Err()
+	rows.Close()
+	if rowsErr != nil {
+		return nil, rowsErr
+	}
 
-	return messages, rows.Err()
+	// Fetch reply previews and reactions after closing the outer rows: the
+	// connection pool has only one connection, so a nested query while rows
+	// above is still open would deadlock waiting for itself to free up.
+	for _, msg := range messages {
+		if msg.ReplyToID != nil {
+			msg.ReplyPreview, _ = db.fetchMessageSnippet(*msg.ReplyToID)
+		}
+		msg.Reactions, _ = db.fetchReactions(msg.MessageID)
+	}
+
+	return messages, nil
 }
 
 func (db *SQLiteDatabase) fetchMessageSnippet(messageID string) (*MessagePreview, error) {
@@ -755,21 +768,29 @@ func (db *SQLiteDatabase) PostMessage(msg *Message) (*Message, error) {
 		return nil, fmt.Errorf("failed to post message: %w", err)
 	}
 
-	// Insert delivery records for all recipients
+	// Insert delivery records for all recipients. Recipient IDs are collected
+	// first and the rows closed before issuing the inserts: the connection
+	// pool has only one connection, so an Exec while recipientRows is still
+	// open would deadlock waiting for itself to free up.
 	recipientRows, err := db.conn.Query(
 		"SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id != ?",
 		msg.ConversationID, msg.SenderID,
 	)
 	if err == nil {
-		defer recipientRows.Close()
+		var recipientIDs []string
 		for recipientRows.Next() {
 			var recipientID string
 			if scanErr := recipientRows.Scan(&recipientID); scanErr == nil {
-				_, _ = db.conn.Exec(
-					"INSERT OR IGNORE INTO message_delivery (message_id, recipient_id) VALUES (?, ?)",
-					msg.MessageID, recipientID,
-				)
+				recipientIDs = append(recipientIDs, recipientID)
 			}
+		}
+		recipientRows.Close()
+
+		for _, recipientID := range recipientIDs {
+			_, _ = db.conn.Exec(
+				"INSERT OR IGNORE INTO message_delivery (message_id, recipient_id) VALUES (?, ?)",
+				msg.MessageID, recipientID,
+			)
 		}
 	}
 
