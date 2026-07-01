@@ -73,7 +73,7 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #c026d3 100%);
   background-size: 200% 200%;
   animation: gradientShift 15s ease infinite;
   padding: 20px;
@@ -132,7 +132,7 @@ export default {
 .login-header h1 {
   font-size: 36px;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, #8b5cf6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

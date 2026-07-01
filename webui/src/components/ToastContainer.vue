@@ -40,19 +40,20 @@ export default {
 }
 .toast {
   pointer-events: auto;
-  padding: 12px 18px;
-  border-radius: 10px;
+  padding: 13px 20px;
+  border-radius: 12px;
   color: #fff;
   font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
   min-width: 220px;
   max-width: 360px;
   cursor: pointer;
 }
-.toast-success { background: #10b981; }
-.toast-error { background: #ef4444; }
-.toast-info { background: #6366f1; }
+.toast-success { background: linear-gradient(135deg, #10b981, #059669); }
+.toast-error { background: linear-gradient(135deg, #f87171, #ef4444); }
+.toast-info { background: linear-gradient(135deg, #6366f1, #7c5cf0); }
 
 .toast-enter-active, .toast-leave-active {
   transition: all 0.2s ease;
