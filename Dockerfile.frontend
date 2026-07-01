@@ -1,19 +1,28 @@
 FROM node:lts AS builder
 
-### Copy Vue.js code
 WORKDIR /app
 COPY webui webui
 
-### Build Vue.js into plain HTML/CSS/JS
 WORKDIR /app/webui
+# Use the yarn cache already present in .yarn/cache
 RUN yarn install --immutable --immutable-cache
-RUN yarn run build-prod
+RUN yarn run vite build --mode production
 
 
-### Create final container
-FROM nginx:stable
+FROM nginx:stable-alpine
 
-### Copy the (built) app from the builder image
+# Copy built SPA
 COPY --from=builder /app/webui/dist /usr/share/nginx/html
 
-# (CMD and EXPOSE are already present in the nginx:stable container, no need to repeat)
+# SPA fallback: all routes serve index.html (hash-based router works without this,
+# but it's good practice)
+RUN printf 'server {\n\
+  listen 80;\n\
+  root /usr/share/nginx/html;\n\
+  index index.html;\n\
+  location / {\n\
+    try_files $uri $uri/ /index.html;\n\
+  }\n\
+}\n' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

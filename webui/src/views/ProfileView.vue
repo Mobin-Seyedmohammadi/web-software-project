@@ -1,44 +1,56 @@
 <template>
   <div class="profile-view">
     <div class="profile-header">
-      <button @click="goBack" class="btn btn-secondary">← Back</button>
-      <h1>Profile Settings</h1>
-      <div></div>
+      <button @click="$router.push('/')" class="btn btn-icon">&#8592; Back</button>
+      <h1>Profile</h1>
+      <div style="width:60px"></div>
     </div>
 
-    <div class="profile-container">
+    <div class="profile-body">
       <div class="profile-card">
-        <div class="profile-section">
-          <h2>Your Information</h2>
-          <div class="profile-info">
-            <div class="avatar avatar-lg" :style="{ background: getAvatarColor(currentUsername) }">{{ getInitial(currentUsername) }}</div>
-            <p class="current-username">{{ currentUsername }}</p>
+        <!-- Avatar / photo upload -->
+        <div class="avatar-section">
+          <div class="avatar-wrap" @click="$refs.photoInput.click()" title="Click to change photo">
+            <div class="avatar-lg" :style="avatarStyle(currentUsername)">
+              <img v-if="currentPhotoUrl" :src="resolveUrl(currentPhotoUrl)" class="avatar-img" />
+              <span v-else>{{ initial(currentUsername) }}</span>
+            </div>
+            <div class="avatar-overlay">&#128247;</div>
           </div>
+          <input ref="photoInput" type="file" accept="image/*" style="display:none" @change="uploadPhoto" />
+          <p class="avatar-hint">Click photo to change</p>
         </div>
 
-        <div class="profile-section">
-          <h3>Change Username</h3>
-          <div class="form-group">
+        <!-- Username display -->
+        <div class="info-section">
+          <label class="field-label">Current Username</label>
+          <div class="current-name">{{ currentUsername }}</div>
+        </div>
+
+        <!-- Change username -->
+        <div class="form-section">
+          <label class="field-label">New Username</label>
+          <div class="input-row">
             <input
               v-model="newUsername"
-              type="text"
               class="input"
+              type="text"
               placeholder="Enter new username"
               minlength="3"
               maxlength="16"
+              @keydown.enter="updateUsername"
             />
+            <button class="btn btn-primary" :disabled="updating || !newUsername.trim()" @click="updateUsername">
+              {{ updating ? 'Saving...' : 'Update' }}
+            </button>
           </div>
-          <button @click="updateUsername" class="btn btn-primary" :disabled="updating">
-            {{ updating ? 'Updating...' : 'Update Username' }}
-          </button>
+          <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
+          <div v-if="successMsg" class="success-msg">{{ successMsg }}</div>
         </div>
 
-        <div v-if="errorMessage" class="error-message">
-          {{ errorMessage }}
-        </div>
-
-        <div v-if="successMessage" class="success-message">
-          {{ successMessage }}
+        <!-- Upload status -->
+        <div v-if="uploadStatus" class="upload-status" :class="uploadStatus.type">
+          {{ uploadStatus.text }}
         </div>
       </div>
     </div>
@@ -46,63 +58,82 @@
 </template>
 
 <script>
-import { updateUsername as apiUpdateUsername } from '../services/api'
+import { updateUsername as apiUpdateUsername, uploadUserPhoto, searchUsers } from '../services/api'
 import { getUsername, setUsername } from '../services/auth'
 
 export default {
   name: 'ProfileView',
   data() {
     return {
-      currentUsername: getUsername(),
+      currentUsername: getUsername() || '',
+      currentPhotoUrl: null,
       newUsername: '',
-      errorMessage: '',
-      successMessage: '',
-      updating: false
+      errorMsg: '',
+      successMsg: '',
+      updating: false,
+      uploadStatus: null,
     }
   },
+  mounted() {
+    this.loadProfile()
+  },
   methods: {
+    async loadProfile() {
+      try {
+        const data = await searchUsers(this.currentUsername)
+        const me = (data.users || []).find(u => u.username === this.currentUsername)
+        if (me) this.currentPhotoUrl = me.photoUrl || null
+      } catch (e) { /* silent */ }
+    },
     async updateUsername() {
-      if (!this.newUsername || this.newUsername.length < 3 || this.newUsername.length > 16) {
-        this.errorMessage = 'Username must be between 3 and 16 characters'
+      const u = this.newUsername.trim()
+      if (!u) return
+      if (u.length < 3 || u.length > 16) {
+        this.errorMsg = 'Username must be 3–16 characters'
         return
       }
-
-      this.errorMessage = ''
-      this.successMessage = ''
+      this.errorMsg = ''
+      this.successMsg = ''
       this.updating = true
-
       try {
-        await apiUpdateUsername(this.newUsername)
-        setUsername(this.newUsername)
-        this.currentUsername = this.newUsername
+        const result = await apiUpdateUsername(u)
+        setUsername(result.username || u)
+        this.currentUsername = result.username || u
+        this.currentPhotoUrl = result.photoUrl || this.currentPhotoUrl
         this.newUsername = ''
-        this.successMessage = 'Username updated successfully!'
-      } catch (error) {
-        this.errorMessage = error.message || 'Failed to update username'
+        this.successMsg = 'Username updated!'
+      } catch (e) {
+        this.errorMsg = e.message || 'Failed to update username'
       } finally {
         this.updating = false
       }
     },
-    getInitial(name) {
+    async uploadPhoto(e) {
+      const f = e.target.files[0]
+      if (!f) return
+      this.uploadStatus = { type: 'info', text: 'Uploading...' }
+      try {
+        const result = await uploadUserPhoto(f)
+        this.currentPhotoUrl = result.photoUrl || null
+        this.uploadStatus = { type: 'success', text: 'Photo updated!' }
+      } catch (err) {
+        this.uploadStatus = { type: 'error', text: 'Failed to upload photo: ' + (err.message || '') }
+      }
+      e.target.value = ''
+      setTimeout(() => { this.uploadStatus = null }, 3000)
+    },
+    resolveUrl(url) {
+      if (!url) return ''
+      if (url.startsWith('http')) return url
+      return __API_URL__ + url
+    },
+    initial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'
     },
-    getAvatarColor(name) {
-      const colors = [
-        'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
-        'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)',
-        'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
-        'linear-gradient(135deg, #ef4444 0%, #f87171 100%)',
-        'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
-        'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
-        'linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%)',
-        'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)'
-      ]
-      if (!name) return colors[0]
-      const index = name.charCodeAt(0) % colors.length
-      return colors[index]
-    },
-    goBack() {
-      this.$router.push('/')
+    avatarStyle(name) {
+      const colors = ['#6366f1','#8b5cf6','#ec4899','#ef4444','#f59e0b','#10b981','#06b6d4','#3b82f6']
+      const i = name ? name.charCodeAt(0) % colors.length : 0
+      return { background: colors[i] }
     }
   }
 }
@@ -110,86 +141,66 @@ export default {
 
 <style scoped>
 .profile-view {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: 100vh; background: #f0f2f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex; flex-direction: column;
 }
-
 .profile-header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border-color);
-  padding: 20px 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: var(--shadow-md);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  background: #fff; border-bottom: 1px solid #e5e7eb;
+  padding: 14px 24px; display: flex; justify-content: space-between;
+  align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  position: sticky; top: 0; z-index: 10;
 }
-
-.profile-header h1 {
-  font-size: 26px;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.profile-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 48px 24px;
-}
-
+.profile-header h1 { font-size: 22px; font-weight: 700; color: #6366f1; margin: 0; }
+.profile-body { flex: 1; padding: 32px 16px; display: flex; justify-content: center; }
 .profile-card {
-  max-width: 640px;
-  margin: 0 auto;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: var(--radius-xl);
-  padding: 40px;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: #fff; border-radius: 16px; padding: 32px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.08); width: 100%; max-width: 500px;
+  display: flex; flex-direction: column; gap: 28px;
 }
 
-.profile-section {
-  margin-bottom: 32px;
+/* Avatar */
+.avatar-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.avatar-wrap { position: relative; cursor: pointer; border-radius: 50%; }
+.avatar-wrap:hover .avatar-overlay { opacity: 1; }
+.avatar-lg {
+  width: 96px; height: 96px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: #fff; font-size: 36px; overflow: hidden;
 }
+.avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.4);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; opacity: 0; transition: opacity .2s;
+}
+.avatar-hint { font-size: 12px; color: #9ca3af; }
 
-.profile-section:last-child {
-  margin-bottom: 0;
-}
+/* Info */
+.info-section, .form-section { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+.current-name { font-size: 24px; font-weight: 700; color: #111827; }
 
-.profile-section h2 {
-  font-size: 20px;
-  margin-bottom: 16px;
+.input-row { display: flex; gap: 10px; }
+.input {
+  flex: 1; border: 1px solid #d1d5db; border-radius: 8px;
+  padding: 10px 14px; font-size: 15px; outline: none;
 }
+.input:focus { border-color: #6366f1; }
 
-.profile-section h3 {
-  font-size: 16px;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
+.error-msg { color: #ef4444; font-size: 14px; margin-top: 4px; }
+.success-msg { color: #10b981; font-size: 14px; margin-top: 4px; }
 
-.profile-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 32px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
-  border-radius: var(--radius-lg);
-  margin-bottom: 32px;
-}
+.upload-status { padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+.upload-status.info { background: #eef2ff; color: #6366f1; }
+.upload-status.success { background: #d1fae5; color: #059669; }
+.upload-status.error { background: #fee2e2; color: #ef4444; }
 
-.current-username {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
-}
+/* Buttons */
+.btn { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: all .15s; }
+.btn-primary { background: #6366f1; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #4f46e5; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-icon { background: none; border: none; cursor: pointer; font-size: 20px; color: #6b7280; padding: 6px; border-radius: 8px; }
+.btn-icon:hover { background: #f3f4f6; }
 </style>

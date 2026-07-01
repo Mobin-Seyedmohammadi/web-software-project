@@ -5,6 +5,10 @@ export function getAuthToken() {
   return localStorage.getItem(AUTH_KEY)
 }
 
+export function getUserId() {
+  return localStorage.getItem(AUTH_KEY)
+}
+
 export function setAuthToken(token) {
   localStorage.setItem(AUTH_KEY, token)
 }
@@ -27,32 +31,24 @@ export function setUsername(username) {
 }
 
 export async function login(username) {
-  try {
-    const response = await fetch(__API_URL__ + '/session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name: username })
-    })
+  const response = await fetch(__API_URL__ + '/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: username })
+  })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Login failed')
-    }
-
-    const data = await response.json()
-    setAuthToken(data.identifier)
-    setUsername(username)
-
-    return data
-  } catch (error) {
-    console.error('Login error:', error)
-    throw error
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || 'Login failed')
   }
+
+  const data = await response.json()
+  setAuthToken(data.identifier)
+  setUsername(username)
+  return data
 }
 
 export function logout() {
   removeAuthToken()
-  window.location.href = '/login'
+  window.location.href = '/'
 }

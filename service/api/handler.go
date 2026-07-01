@@ -130,5 +130,5 @@ func (h *APIHandler) setupRoutes() {
 	h.router.PUT("/groups/:groupId/photo", h.authenticated(h.handleUploadGroupPhoto))
 
 	// Static files (photos)
-	h.router.ServeFiles("/photos/*filepath", http.Dir("./photos"))
+	h.router.ServeFiles("/photos/*filepath", http.Dir(photosDir()))
 }
