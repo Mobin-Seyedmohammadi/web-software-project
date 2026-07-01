@@ -15,9 +15,17 @@ type UsernameUpdateRequest struct {
 
 // handleSearchUsers handles GET /users
 func (h *APIHandler) handleSearchUsers(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	currentUser := getUserFromContext(r.Context())
+	if currentUser == nil {
+		h.errorResponse(w, http.StatusUnauthorized, "Not authenticated")
+		return
+	}
+
 	query := r.URL.Query().Get("query")
 
-	users, err := h.database.FindUsers(query)
+	// Exclude the requester so you can never pick yourself to start a chat,
+	// add as a group member, etc.
+	users, err := h.database.FindUsers(query, currentUser.Identifier)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to search users")
 		h.errorResponse(w, http.StatusInternalServerError, "Failed to search users")

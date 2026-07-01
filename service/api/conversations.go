@@ -52,6 +52,11 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if req.UserID == currentUser.Identifier {
+		h.errorResponse(w, http.StatusBadRequest, "Cannot start a conversation with yourself")
+		return
+	}
+
 	// Check if target user exists
 	_, err := h.database.FindUserByID(req.UserID)
 	if err != nil {
@@ -66,8 +71,12 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 
 	conversation, err := h.database.InitiatePrivateConversation(currentUser.Identifier, req.UserID)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to create conversation")
-		h.errorResponse(w, http.StatusInternalServerError, "Failed to create conversation")
+		if err == db.ErrCannotMessageSelf {
+			h.errorResponse(w, http.StatusBadRequest, "Cannot start a conversation with yourself")
+		} else {
+			h.logger.WithError(err).Error("Failed to create conversation")
+			h.errorResponse(w, http.StatusInternalServerError, "Failed to create conversation")
+		}
 		return
 	}
 

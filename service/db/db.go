@@ -23,6 +23,7 @@ var (
 	ErrUnauthorized          = errors.New("unauthorized operation")
 	ErrUserNotInConversation = errors.New("user not in conversation")
 	ErrReactionExists        = errors.New("reaction already exists")
+	ErrCannotMessageSelf     = errors.New("cannot start a conversation with yourself")
 )
 
 type AppDatabase interface {
@@ -31,7 +32,7 @@ type AppDatabase interface {
 	FindUserByUsername(username string) (*User, error)
 	ChangeUsername(userID, newUsername string) (*User, error)
 	SetUserPhoto(userID, photoURL string) (*User, error)
-	FindUsers(searchQuery string) ([]*User, error)
+	FindUsers(searchQuery, excludeUserID string) ([]*User, error)
 
 	FetchUserConversations(userID string) ([]*ConversationPreview, error)
 	FetchConversationDetails(conversationID, requestingUserID string) (*ConversationFull, error)
@@ -370,12 +371,12 @@ func (db *SQLiteDatabase) SetUserPhoto(userID, photoURL string) (*User, error) {
 	return db.FindUserByID(userID)
 }
 
-func (db *SQLiteDatabase) FindUsers(searchQuery string) ([]*User, error) {
-	query := "SELECT identifier, username, photo_url FROM users"
-	args := []interface{}{}
+func (db *SQLiteDatabase) FindUsers(searchQuery, excludeUserID string) ([]*User, error) {
+	query := "SELECT identifier, username, photo_url FROM users WHERE identifier != ?"
+	args := []interface{}{excludeUserID}
 
 	if searchQuery != "" {
-		query += " WHERE username LIKE ?"
+		query += " AND username LIKE ?"
 		args = append(args, "%"+searchQuery+"%")
 	}
 	query += " ORDER BY username LIMIT 100"
@@ -705,6 +706,15 @@ func (db *SQLiteDatabase) fetchReactions(messageID string) ([]*Reaction, error) 
 }
 
 func (db *SQLiteDatabase) InitiatePrivateConversation(user1ID, user2ID string) (*ConversationFull, error) {
+	if user1ID == user2ID {
+		// The existing-conversation lookup below is a self-join on
+		// conversation_participants keyed only by user ID; with the same ID
+		// on both sides it would match the first private conversation this
+		// user happens to be in with someone else, not a conversation with
+		// themselves. Reject outright instead.
+		return nil, ErrCannotMessageSelf
+	}
+
 	var convID string
 	err := db.conn.QueryRow(`
 		SELECT c.id FROM conversations c
