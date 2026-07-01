@@ -73,6 +73,7 @@ components:
         - conversationType
         - displayName
         - lastMessageTimestamp
+        - lastMessageIsPhoto
       properties:
         conversationId:
           type: string
@@ -121,6 +122,7 @@ components:
         - conversationId
         - conversationType
         - displayName
+        - participants
         - messages
       properties:
         conversationId:
@@ -167,6 +169,7 @@ components:
         - senderName
         - sentAt
         - deliveryStatus
+        - reactions
       properties:
         messageId:
           type: string
@@ -243,6 +246,7 @@ components:
       required:
         - messageId
         - senderName
+        - hasPhoto
       properties:
         messageId:
           type: string
@@ -481,6 +485,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported Media Type - request must be multipart/form-data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /users:
     get:
@@ -712,6 +722,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported Media Type - request must be multipart/form-data
           content:
             application/json:
               schema:
@@ -1206,6 +1222,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported Media Type - request must be multipart/form-data
           content:
             application/json:
               schema:

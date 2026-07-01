@@ -48,6 +48,22 @@ func (h *APIHandler) postSystemMessage(conversationID, actorID, text string) {
 	}
 }
 
+// requireMultipartForm rejects requests that aren't multipart/form-data with
+// 415 (wrong Content-Type entirely) before attempting to parse the body, so
+// that case is distinguishable from a 400 (right Content-Type, malformed
+// body). Returns false if it already wrote an error response.
+func (h *APIHandler) requireMultipartForm(w http.ResponseWriter, r *http.Request, maxMemory int64) bool {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		h.errorResponse(w, http.StatusUnsupportedMediaType, "Content-Type must be multipart/form-data")
+		return false
+	}
+	if err := r.ParseMultipartForm(maxMemory); err != nil {
+		h.errorResponse(w, http.StatusBadRequest, "Failed to parse form data")
+		return false
+	}
+	return true
+}
+
 func photosDir() string {
 	if dir := os.Getenv("PHOTOS_DIR"); dir != "" {
 		return dir

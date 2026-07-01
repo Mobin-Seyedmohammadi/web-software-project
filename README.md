@@ -117,13 +117,36 @@ docker build -t wasatext-frontend:latest -f Dockerfile.frontend .
 
 ### Run with Docker Compose
 
+From the project root:
+
 ```bash
-docker-compose up
+docker compose up --build
 ```
 
-This will start both backend and frontend services:
+This builds both images (if needed) and starts the backend and frontend:
 - **Frontend**: http://localhost:8080
 - **Backend API**: http://localhost:3000
+
+Both services define a Docker `HEALTHCHECK` (backend polls its own `GET
+/health`, frontend polls nginx). The frontend won't start until the backend
+reports healthy, so the first `docker compose up` may take a few seconds
+before both containers show as `healthy` — check with:
+
+```bash
+docker compose ps
+```
+
+Data persists across restarts in two named volumes: `wasatext-data` (the
+SQLite database) and `wasatext-photos` (uploaded profile/group photos).
+
+To stop the stack:
+
+```bash
+docker compose down          # keep data
+docker compose down -v       # also wipe the named volumes
+```
+
+To run in the background, add `-d` to the `up` command.
 
 See [DOCKER.md](DOCKER.md) for detailed Docker instructions.
 
@@ -131,6 +154,7 @@ See [DOCKER.md](DOCKER.md) for detailed Docker instructions.
 
 - `PORT` - Server port (default: 3000)
 - `DB_PATH` - SQLite database file path (default: ./wasatext.db)
+- `PHOTOS_DIR` - Directory for uploaded photos (default: ./photos)
 - `SERVER_URL` - Base URL for health checks (default: http://localhost:3000)
 
 ## Database

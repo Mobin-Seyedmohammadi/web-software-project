@@ -74,25 +74,25 @@ The frontend will be available at http://localhost:8080
 The simplest way to run the entire application is with Docker Compose:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 To run in detached mode:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 To stop the services:
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 To stop and remove volumes:
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Docker Compose Configuration
@@ -110,7 +110,7 @@ backend:
     - "3000:3000"
   volumes:
     - wasatext-data:/data
-    - wasatext-photos:/app/photos
+    - wasatext-photos:/data/photos
   environment:
     - PORT=3000
     - DB_PATH=/data/wasatext.db
@@ -127,9 +127,13 @@ frontend:
   ports:
     - "8080:80"
   depends_on:
-    - backend
+    backend:
+      condition: service_healthy
   restart: unless-stopped
 ```
+
+The frontend's `depends_on` waits for the backend's `HEALTHCHECK` to report
+healthy (not just "started") before starting nginx.
 
 ## Environment Variables
 
@@ -137,6 +141,7 @@ frontend:
 
 - `PORT` - HTTP server port (default: 3000)
 - `DB_PATH` - Path to SQLite database file (default: /data/wasatext.db)
+- `PHOTOS_DIR` - Directory for uploaded photos (default: /data/photos)
 
 ### Frontend
 
@@ -184,32 +189,49 @@ ports:
 
 ## Health Checks
 
-The backend doesn't expose a health check endpoint by default. To add one, you can extend the API with a `/health` endpoint and add a healthcheck to the Dockerfile:
+Both images define a Docker `HEALTHCHECK`:
 
-```dockerfile
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:3000/health || exit 1
-```
+- **Backend**: the image also builds `cmd/healthcheck`, a small Go binary
+  that calls `GET /health` on the running server and exits non-zero on
+  failure. `Dockerfile.backend` runs it via:
+
+  ```dockerfile
+  HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/app/healthcheck"]
+  ```
+
+- **Frontend**: `Dockerfile.frontend` polls nginx directly:
+
+  ```dockerfile
+  HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD wget --spider -q http://127.0.0.1/ || exit 1
+  ```
+
+  (`127.0.0.1` rather than `localhost` avoids `wget` trying IPv6 first and
+  failing, since nginx only listens on IPv4 inside the container.)
+
+Check current health status with `docker compose ps` or
+`docker inspect --format='{{json .State.Health}}' <container>`.
 
 ## Logs
 
 View logs for all services:
 
 ```bash
-docker-compose logs
+docker compose logs
 ```
 
 View logs for a specific service:
 
 ```bash
-docker-compose logs backend
-docker-compose logs frontend
+docker compose logs backend
+docker compose logs frontend
 ```
 
 Follow logs in real-time:
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ## Scaling
@@ -221,7 +243,7 @@ Docker Compose doesn't support scaling with conflicting port mappings. To scale 
 3. Scale the backend service:
 
 ```bash
-docker-compose up --scale backend=3
+docker compose up --scale backend=3
 ```
 
 ## Production Considerations
@@ -250,7 +272,7 @@ deploy:
 
 ### Monitoring
 
-1. **Add health checks**: Implement health check endpoints
+1. **Health checks**: already implemented for both services — see [Health Checks](#health-checks)
 2. **Collect logs**: Use a centralized logging solution
 3. **Monitor resources**: Use Docker stats or monitoring tools
 
@@ -260,7 +282,7 @@ deploy:
 
 Check logs:
 ```bash
-docker-compose logs backend
+docker compose logs backend
 ```
 
 Verify the image was built correctly:
@@ -272,7 +294,7 @@ docker images | grep wasatext
 
 Ensure the backend is running:
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 Check that the API proxy is configured correctly in `webui/vite.config.js`
@@ -281,9 +303,9 @@ Check that the API proxy is configured correctly in `webui/vite.config.js`
 
 Ensure the data volume has correct permissions:
 ```bash
-docker-compose down
+docker compose down
 docker volume rm wasatext-data
-docker-compose up
+docker compose up
 ```
 
 ### Port already in use
@@ -295,7 +317,7 @@ Change the port mapping in `docker-compose.yml` or stop the conflicting service.
 Remove all containers, networks, and images:
 
 ```bash
-docker-compose down
+docker compose down
 docker rmi wasatext-backend:latest
 docker rmi wasatext-frontend:latest
 ```
@@ -303,7 +325,7 @@ docker rmi wasatext-frontend:latest
 Remove volumes (WARNING: This deletes all data):
 
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 Remove all unused Docker resources:
@@ -331,7 +353,7 @@ Build for multiple architectures:
 
 ```bash
 docker buildx build \
-  --platform linux/amd/64,linux/arm64 \
+  --platform linux/amd64,linux/arm64 \
   -t wasatext-backend:latest \
   -f Dockerfile.backend .
 ```

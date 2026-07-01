@@ -6,6 +6,7 @@ COPY . .
 # Pure-Go sqlite3 (modernc.org/sqlite) — no CGO required
 ENV CGO_ENABLED=0
 RUN go build -mod=vendor -o /app/webapi ./cmd/webapi
+RUN go build -mod=vendor -o /app/healthcheck ./cmd/healthcheck
 
 
 FROM debian:bookworm-slim
@@ -14,11 +15,15 @@ EXPOSE 3000
 
 WORKDIR /app/
 COPY --from=builder /app/webapi ./
+COPY --from=builder /app/healthcheck ./
 
 # Store DB and photos on a persistent volume
 RUN mkdir -p /data/photos
 ENV DB_PATH=/data/wasatext.db
 ENV PHOTOS_DIR=/data/photos
 VOLUME ["/data"]
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+  CMD ["/app/healthcheck"]
 
 CMD ["/app/webapi"]

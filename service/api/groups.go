@@ -260,8 +260,7 @@ func (h *APIHandler) handleUploadGroupPhoto(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10 MB max
-		h.errorResponse(w, http.StatusBadRequest, "Failed to parse form data")
+	if !h.requireMultipartForm(w, r, 10<<20) { // 10 MB max
 		return
 	}
 

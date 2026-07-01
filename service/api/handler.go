@@ -101,7 +101,15 @@ func (h *APIHandler) authenticated(handler RequestHandler) httprouter.Handle {
 }
 
 // setupRoutes configures all API endpoints
+// handleHealth handles GET /health
+func (h *APIHandler) handleHealth(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	h.jsonResponse(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (h *APIHandler) setupRoutes() {
+	// Health check (used by cmd/healthcheck and Docker HEALTHCHECK)
+	h.router.GET("/health", h.handleHealth)
+
 	// Authentication
 	h.router.POST("/session", h.handleLogin)
 
