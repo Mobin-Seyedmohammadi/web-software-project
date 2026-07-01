@@ -144,7 +144,19 @@ func (h *APIHandler) handleLeaveGroup(w http.ResponseWriter, r *http.Request, ps
 		return
 	}
 
-	// Check if user is in group
+	// Existence is checked before membership so a bad/unknown groupId reports
+	// 404 rather than being indistinguishable from "not a member".
+	exists, err := h.database.GroupExists(groupID)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to check group existence")
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to leave group")
+		return
+	}
+	if !exists {
+		h.errorResponse(w, http.StatusNotFound, "Group not found")
+		return
+	}
+
 	isMember, err := h.database.CheckGroupMembership(currentUser.Identifier, groupID)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to check group membership")

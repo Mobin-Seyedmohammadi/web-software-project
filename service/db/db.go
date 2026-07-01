@@ -37,6 +37,8 @@ type AppDatabase interface {
 	FetchConversationDetails(conversationID, requestingUserID string) (*ConversationFull, error)
 	InitiatePrivateConversation(user1ID, user2ID string) (*ConversationFull, error)
 	CheckConversationMembership(userID, conversationID string) (bool, error)
+	ConversationExists(conversationID string) (bool, error)
+	GroupExists(groupID string) (bool, error)
 
 	PostMessage(msg *Message) (*Message, error)
 	FetchMessage(messageID string) (*Message, error)
@@ -474,6 +476,23 @@ func (db *SQLiteDatabase) FetchUserConversations(userID string) ([]*Conversation
 }
 
 func (db *SQLiteDatabase) FetchConversationDetails(conversationID, requestingUserID string) (*ConversationFull, error) {
+	// Existence is checked before membership so a bad/unknown conversationId
+	// reports 404 rather than being indistinguishable from "not a member".
+	var conv ConversationFull
+	var groupName, groupPhoto sql.NullString
+
+	err := db.conn.QueryRow(
+		"SELECT id, conv_type, group_name, group_photo_url FROM conversations WHERE id = ?",
+		conversationID,
+	).Scan(&conv.ConversationID, &conv.ConversationType, &groupName, &groupPhoto)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrConversationNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch conversation: %w", err)
+	}
+
 	isMember, err := db.CheckConversationMembership(requestingUserID, conversationID)
 	if err != nil {
 		return nil, err
@@ -492,21 +511,6 @@ func (db *SQLiteDatabase) FetchConversationDetails(conversationID, requestingUse
 		WHERE recipient_id = ?
 		AND message_id IN (SELECT id FROM messages WHERE conversation_id = ?)
 	`, now, now, requestingUserID, conversationID)
-
-	var conv ConversationFull
-	var groupName, groupPhoto sql.NullString
-
-	err = db.conn.QueryRow(
-		"SELECT id, conv_type, group_name, group_photo_url FROM conversations WHERE id = ?",
-		conversationID,
-	).Scan(&conv.ConversationID, &conv.ConversationType, &groupName, &groupPhoto)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrConversationNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch conversation: %w", err)
-	}
 
 	if conv.ConversationType == "private" {
 		var otherUsername string
@@ -682,7 +686,10 @@ func (db *SQLiteDatabase) fetchReactions(messageID string) ([]*Reaction, error) 
 		ORDER BY r.reacted_at
 	`, messageID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch reactions: %w", err)
+		// Callers of fetchReactions discard the error and keep whatever slice
+		// is returned (Message.Reactions has no omitempty), so an empty slice
+		// here matters: nil would serialize as JSON null instead of [].
+		return []*Reaction{}, fmt.Errorf("failed to fetch reactions: %w", err)
 	}
 	defer rows.Close()
 
@@ -690,7 +697,7 @@ func (db *SQLiteDatabase) fetchReactions(messageID string) ([]*Reaction, error) 
 	for rows.Next() {
 		var reaction Reaction
 		if err := rows.Scan(&reaction.ReactionID, &reaction.UserID, &reaction.Username, &reaction.Emoji); err != nil {
-			return nil, fmt.Errorf("failed to scan reaction: %w", err)
+			return reactions, fmt.Errorf("failed to scan reaction: %w", err)
 		}
 		reactions = append(reactions, &reaction)
 	}
@@ -741,6 +748,35 @@ func (db *SQLiteDatabase) InitiatePrivateConversation(user1ID, user2ID string) (
 	}
 
 	return db.FetchConversationDetails(convID, user1ID)
+}
+
+// ConversationExists reports whether a conversation (private or group) with
+// this ID exists at all, independent of the requester's membership. Callers
+// use this to tell a nonexistent conversation (404) apart from one the
+// requester simply isn't a member of (403).
+func (db *SQLiteDatabase) ConversationExists(conversationID string) (bool, error) {
+	var count int
+	err := db.conn.QueryRow(
+		"SELECT COUNT(*) FROM conversations WHERE id = ?",
+		conversationID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check conversation existence: %w", err)
+	}
+	return count > 0, nil
+}
+
+// GroupExists is like ConversationExists but only matches group conversations.
+func (db *SQLiteDatabase) GroupExists(groupID string) (bool, error) {
+	var count int
+	err := db.conn.QueryRow(
+		"SELECT COUNT(*) FROM conversations WHERE id = ? AND conv_type = 'group'",
+		groupID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check group existence: %w", err)
+	}
+	return count > 0, nil
 }
 
 func (db *SQLiteDatabase) CheckConversationMembership(userID, conversationID string) (bool, error) {
@@ -1048,6 +1084,14 @@ func (db *SQLiteDatabase) FetchGroupInfo(groupID string) (*Group, error) {
 }
 
 func (db *SQLiteDatabase) AddGroupMember(groupID, userID, adderID string) error {
+	exists, err := db.GroupExists(groupID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrGroupNotFound
+	}
+
 	isMember, err := db.CheckGroupMembership(adderID, groupID)
 	if err != nil {
 		return err
@@ -1118,6 +1162,14 @@ func (db *SQLiteDatabase) RemoveGroupMember(groupID, userID string) error {
 }
 
 func (db *SQLiteDatabase) RenameGroup(groupID, requesterID, newName string) error {
+	exists, err := db.GroupExists(groupID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrGroupNotFound
+	}
+
 	isMember, err := db.CheckGroupMembership(requesterID, groupID)
 	if err != nil {
 		return err
@@ -1137,6 +1189,14 @@ func (db *SQLiteDatabase) RenameGroup(groupID, requesterID, newName string) erro
 }
 
 func (db *SQLiteDatabase) SetGroupPhoto(groupID, requesterID, photoURL string) error {
+	exists, err := db.GroupExists(groupID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrGroupNotFound
+	}
+
 	isMember, err := db.CheckGroupMembership(requesterID, groupID)
 	if err != nil {
 		return err

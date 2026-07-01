@@ -27,6 +27,19 @@ func (h *APIHandler) handleSendMessage(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
+	// Existence is checked before membership so a bad/unknown conversationId
+	// reports 404 rather than being indistinguishable from "not a member".
+	exists, err := h.database.ConversationExists(conversationID)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to check conversation existence")
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to send message")
+		return
+	}
+	if !exists {
+		h.errorResponse(w, http.StatusNotFound, "Conversation not found")
+		return
+	}
+
 	// Check if user is in conversation
 	isMember, err := h.database.CheckConversationMembership(currentUser.Identifier, conversationID)
 	if err != nil || !isMember {
@@ -141,6 +154,20 @@ func (h *APIHandler) handleForwardMessage(w http.ResponseWriter, r *http.Request
 
 	if req.TargetConversationID == "" {
 		h.errorResponse(w, http.StatusBadRequest, "Target conversation ID required")
+		return
+	}
+
+	// Existence is checked before membership so a bad/unknown target
+	// conversationId reports 404 rather than being indistinguishable from
+	// "not a member".
+	targetExists, err := h.database.ConversationExists(req.TargetConversationID)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to check target conversation existence")
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to forward message")
+		return
+	}
+	if !targetExists {
+		h.errorResponse(w, http.StatusNotFound, "Target conversation not found")
 		return
 	}
 
