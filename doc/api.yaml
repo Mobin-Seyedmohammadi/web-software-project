@@ -214,6 +214,16 @@ components:
           minLength: 1
           maxLength: 128
           description: ID of original message (if forwarded)
+        messageType:
+          type: string
+          enum: [user, system]
+          default: user
+          description: |
+            Whether this is a regular user message or a system-generated
+            announcement (e.g. a member joining/leaving a group, or the
+            group name/photo changing). System messages have no photo,
+            reactions, or reply, and are rendered without a chat bubble.
+          example: "user"
         deliveryStatus:
           type: string
           enum: [sent, received, read]
