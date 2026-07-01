@@ -239,6 +239,7 @@ import {
 } from '../services/api'
 import { getUserId, getUsername } from '../services/auth'
 import { showToast } from '../services/toast'
+import { API_URL } from '../services/config'
 
 export default {
   name: 'ChatView',
@@ -487,7 +488,7 @@ export default {
     resolveUrl(url) {
       if (!url) return ''
       if (url.startsWith('http')) return url
-      return __API_URL__ + url
+      return API_URL + url
     },
     initial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'

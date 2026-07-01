@@ -128,6 +128,7 @@
 <script>
 import { getConversations, searchUsers as apiSearch, createConversation, createGroup as apiCreateGroup } from '../services/api'
 import { logout } from '../services/auth'
+import { API_URL } from '../services/config'
 
 export default {
   name: 'HomeView',
@@ -234,7 +235,7 @@ export default {
     resolveUrl(url) {
       if (!url) return ''
       if (url.startsWith('http')) return url
-      return __API_URL__ + url
+      return API_URL + url
     },
     initial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'

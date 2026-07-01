@@ -1,3 +1,5 @@
+import { API_URL } from './config'
+
 const AUTH_KEY = 'wasatext_auth_token'
 const USERNAME_KEY = 'wasatext_username'
 
@@ -31,7 +33,7 @@ export function setUsername(username) {
 }
 
 export async function login(username) {
-  const response = await fetch(__API_URL__ + '/session', {
+  const response = await fetch(API_URL + '/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: username })

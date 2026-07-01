@@ -60,6 +60,7 @@
 <script>
 import { updateUsername as apiUpdateUsername, uploadUserPhoto, searchUsers } from '../services/api'
 import { getUsername, setUsername } from '../services/auth'
+import { API_URL } from '../services/config'
 
 export default {
   name: 'ProfileView',
@@ -125,7 +126,7 @@ export default {
     resolveUrl(url) {
       if (!url) return ''
       if (url.startsWith('http')) return url
-      return __API_URL__ + url
+      return API_URL + url
     },
     initial(name) {
       return name ? name.charAt(0).toUpperCase() : '?'
