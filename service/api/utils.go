@@ -116,6 +116,46 @@ func photosDir() string {
 	return "./photos"
 }
 
+// EnsurePhotosDir creates the photos directory (from PHOTOS_DIR, or
+// ./photos by default) if needed and confirms this process can actually
+// write to it, via a real write-then-remove probe rather than trusting
+// permission bits — a freshly-mounted Docker volume can look fine and
+// still reject writes. Called once at startup so a misconfigured/
+// unwritable volume fails fast with a clear, specific error naming the
+// exact path, instead of surfacing as a cryptic failure on a user's first
+// photo upload.
+func EnsurePhotosDir() error {
+	dir := photosDir()
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve photos directory %q: %w", dir, err)
+	}
+
+	if err := os.MkdirAll(absDir, photoDirPerm); err != nil {
+		return fmt.Errorf("failed to create photos directory %q: %w", absDir, err)
+	}
+	// MkdirAll is a no-op if the directory already exists (e.g. a
+	// freshly-mounted, root-owned Docker volume), so it can't be trusted to
+	// have applied photoDirPerm; set it explicitly instead.
+	if err := os.Chmod(absDir, photoDirPerm); err != nil {
+		return fmt.Errorf("failed to set permissions on photos directory %q: %w", absDir, err)
+	}
+
+	probePath := filepath.Join(absDir, ".write-test")
+	//nolint:gosec // probePath is absDir + a fixed literal suffix, not user input
+	probe, err := os.Create(probePath)
+	if err != nil {
+		return fmt.Errorf("photos directory %q exists but is not writable by this process: %w", absDir, err)
+	}
+	if closeErr := probe.Close(); closeErr != nil {
+		return fmt.Errorf("failed to close write-test probe in %q: %w", absDir, closeErr)
+	}
+	if err := os.Remove(probePath); err != nil {
+		return fmt.Errorf("failed to remove write-test probe from %q: %w", absDir, err)
+	}
+	return nil
+}
+
 // saveUploadedFile writes an uploaded photo under the photos directory with
 // a generated filename and returns its public URL path. filename is only
 // used to infer an extension from an allowlist; it never contributes to the

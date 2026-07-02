@@ -6,12 +6,19 @@ services:
       dockerfile: Dockerfile.backend
     ports:
       - "3000:3000"
+    # Single volume covering /data (DB file + the photos/ subdirectory).
+    # Do NOT also mount a second volume at /data/photos: nesting two
+    # separately-initialized named volumes under the same path tree isn't
+    # guaranteed consistent ownership/permissions across Docker hosts and
+    # storage drivers, and was the root cause of a "failed to ping
+    # database: ... out of memory (14)" (really SQLITE_CANTOPEN) failure
+    # that only reproduced on one deployment target.
     volumes:
       - wasatext-data:/data
-      - wasatext-photos:/data/photos
     environment:
       - PORT=3000
       - DB_PATH=/data/wasatext.db
+      - PHOTOS_DIR=/data/photos
     restart: unless-stopped
 
   # Frontend (Vue.js served by nginx)
@@ -28,4 +35,3 @@ services:
 
 volumes:
   wasatext-data:
-  wasatext-photos:

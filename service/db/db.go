@@ -290,28 +290,71 @@ type Group struct {
 	Participants []*User `json:"participants"`
 }
 
+// ensureWritableDir makes sure dir exists and this process can actually
+// write to it, creating it if necessary. It performs a real write-then-
+// remove probe rather than trusting permission bits, because a
+// freshly-mounted Docker volume can look fine (directory exists, mode bits
+// look right) and still reject writes — ownership left over from how the
+// volume driver initialized it, a read-only mount, a restricted overlay
+// filesystem, and so on. On failure the returned error names the exact
+// path and wraps the underlying OS error, so a "can't open database"
+// failure raised later points straight back at the real cause instead of
+// an opaque SQLite errno.
+func ensureWritableDir(dirPath string) error {
+	if err := os.MkdirAll(dirPath, defaultDirPerm); err != nil {
+		return fmt.Errorf("failed to create directory %q: %w", dirPath, err)
+	}
+
+	// MkdirAll is a no-op if the directory already exists (e.g. a
+	// freshly-mounted, root-owned Docker volume), so it can't be trusted to
+	// have applied defaultDirPerm; set it explicitly instead.
+	if err := os.Chmod(dirPath, defaultDirPerm); err != nil {
+		return fmt.Errorf("failed to set permissions on directory %q: %w", dirPath, err)
+	}
+
+	probePath := filepath.Join(dirPath, ".write-test")
+	//nolint:gosec // probePath is dirPath + a fixed literal suffix, not user input
+	probe, err := os.Create(probePath)
+	if err != nil {
+		return fmt.Errorf("directory %q exists but is not writable by this process: %w", dirPath, err)
+	}
+	if closeErr := probe.Close(); closeErr != nil {
+		log.Printf("failed to close write-test probe %q: %v", probePath, closeErr)
+	}
+	if err := os.Remove(probePath); err != nil {
+		log.Printf("failed to remove write-test probe %q: %v", probePath, err)
+	}
+	return nil
+}
+
 // NewDatabase opens (creating if necessary) the SQLite database at dbPath
 // and ensures its schema is up to date.
 func NewDatabase(dbPath string) (*SQLiteDatabase, error) {
 	ctx := context.Background()
 
-	dirPath := filepath.Dir(dbPath)
-	if dirPath != "" && dirPath != "." {
-		if err := os.MkdirAll(dirPath, defaultDirPerm); err != nil {
-			return nil, fmt.Errorf("failed to create database directory: %w", err)
-		}
+	absPath, err := filepath.Abs(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve database path %q: %w", dbPath, err)
+	}
+
+	dirPath := filepath.Dir(absPath)
+	if err := ensureWritableDir(dirPath); err != nil {
+		return nil, fmt.Errorf("database directory %q is not ready: %w", dirPath, err)
 	}
 
 	conn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to open database at %q: %w", absPath, err)
 	}
 
 	if err := conn.PingContext(ctx); err != nil {
 		if closeErr := conn.Close(); closeErr != nil {
 			log.Printf("failed to close database connection: %v", closeErr)
 		}
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf(
+			"failed to ping database at %q (directory %q, exists and writable): %w",
+			absPath, dirPath, err,
+		)
 	}
 
 	conn.SetMaxOpenConns(1)

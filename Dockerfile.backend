@@ -17,8 +17,16 @@ WORKDIR /app/
 COPY --from=builder /app/webapi ./
 COPY --from=builder /app/healthcheck ./
 
-# Store DB and photos on a persistent volume
-RUN mkdir -p /data/photos
+# Store DB and photos on a persistent volume. chmod 777 rather than
+# relying on the default mkdir mode: on some Docker hosts/storage drivers,
+# a volume mounted over this path on first run is (re-)initialized with
+# ownership/permissions that don't match whatever UID the container ends
+# up running as, and a restrictive mode here would make that failure mode
+# more likely. The app also re-checks and self-heals permissions on both
+# directories at startup (see service/db.ensureWritableDir and
+# service/api.EnsurePhotosDir) and fails fast with a specific error naming
+# the exact path if a write still isn't possible.
+RUN mkdir -p /data/photos && chmod -R 777 /data
 ENV DB_PATH=/data/wasatext.db
 ENV PHOTOS_DIR=/data/photos
 VOLUME ["/data"]

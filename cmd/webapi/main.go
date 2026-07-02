@@ -37,6 +37,29 @@ func main() {
 	}
 }
 
+// prepareStorage ensures the photos directory and the SQLite database are
+// ready to use before the server starts accepting requests, logging the
+// exact path involved in each step so a misconfigured/unwritable volume
+// fails fast with a specific, actionable error rather than surfacing later
+// as a cryptic driver-level failure.
+func prepareStorage(logger *logrus.Logger, dbPath string) (*db.SQLiteDatabase, error) {
+	logger.WithField("photosDir", os.Getenv("PHOTOS_DIR")).Info("Checking photos directory")
+
+	if err := api.EnsurePhotosDir(); err != nil {
+		logger.WithError(err).Error("Failed to prepare photos directory")
+		return nil, fmt.Errorf("failed to prepare photos directory: %w", err)
+	}
+
+	logger.WithField("dbPath", dbPath).Info("Initializing database")
+
+	database, err := db.NewDatabase(dbPath)
+	if err != nil {
+		logger.WithError(err).Error("Failed to initialize database")
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+	return database, nil
+}
+
 func execute(logger *logrus.Logger) error {
 	serverPort := os.Getenv("PORT")
 	if serverPort == "" {
@@ -48,12 +71,9 @@ func execute(logger *logrus.Logger) error {
 		dbPath = "./wasatext.db"
 	}
 
-	logger.WithField("dbPath", dbPath).Info("Initializing database")
-
-	database, err := db.NewDatabase(dbPath)
+	database, err := prepareStorage(logger, dbPath)
 	if err != nil {
-		logger.WithError(err).Error("Failed to initialize database")
-		return fmt.Errorf("failed to initialize database: %w", err)
+		return err
 	}
 	defer func() {
 		if closeErr := database.Close(); closeErr != nil {
