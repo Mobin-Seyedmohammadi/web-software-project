@@ -1,5 +1,4 @@
 //go:build webui
-// +build webui
 
 package main
 
@@ -12,7 +11,7 @@ import (
 	"github.com/yourname/wasatext/webui"
 )
 
-// registerWebUI serves the embedded web UI
+// registerWebUI serves the embedded web UI.
 func registerWebUI(router *httprouter.Router, logger *logrus.Logger) error {
 	logger.Info("Registering embedded web UI")
 
@@ -24,7 +23,7 @@ func registerWebUI(router *httprouter.Router, logger *logrus.Logger) error {
 	fileServer := http.FileServer(http.FS(webUIFS))
 
 	router.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Try serving the file
+		// Try serving the file.
 		fileServer.ServeHTTP(w, r)
 	})
 

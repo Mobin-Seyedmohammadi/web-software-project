@@ -9,33 +9,33 @@ import (
 	"github.com/yourname/wasatext/service/db"
 )
 
-// CreateConversationRequest represents the request to create a conversation
+// CreateConversationRequest represents the request to create a conversation.
 type CreateConversationRequest struct {
 	UserID string `json:"userId"`
 }
 
-// handleGetConversations handles GET /conversations
-func (h *APIHandler) handleGetConversations(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// handleGetConversations handles GET /conversations.
+func (h *Server) handleGetConversations(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	currentUser := getUserFromContext(r.Context())
 	if currentUser == nil {
 		h.errorResponse(w, http.StatusUnauthorized, "Not authenticated")
 		return
 	}
 
-	conversations, err := h.database.FetchUserConversations(currentUser.Identifier)
+	conversations, err := h.database.FetchUserConversations(r.Context(), currentUser.Identifier)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to fetch conversations")
 		h.errorResponse(w, http.StatusInternalServerError, "Failed to fetch conversations")
 		return
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
+	h.jsonResponse(w, http.StatusOK, map[string]any{
 		"conversations": conversations,
 	})
 }
 
-// handleCreateConversation handles POST /conversations
-func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// handleCreateConversation handles POST /conversations.
+func (h *Server) handleCreateConversation(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	currentUser := getUserFromContext(r.Context())
 	if currentUser == nil {
 		h.errorResponse(w, http.StatusUnauthorized, "Not authenticated")
@@ -58,8 +58,8 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Check if target user exists
-	_, err := h.database.FindUserByID(req.UserID)
+	// Check if target user exists.
+	_, err := h.database.FindUserByID(r.Context(), req.UserID)
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "User not found")
@@ -70,7 +70,7 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	conversation, err := h.database.InitiatePrivateConversation(currentUser.Identifier, req.UserID)
+	conversation, err := h.database.InitiatePrivateConversation(r.Context(), currentUser.Identifier, req.UserID)
 	if err != nil {
 		if errors.Is(err, db.ErrCannotMessageSelf) {
 			h.errorResponse(w, http.StatusBadRequest, "Cannot start a conversation with yourself")
@@ -86,8 +86,8 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 	h.jsonResponse(w, http.StatusCreated, conversation)
 }
 
-// handleGetConversation handles GET /conversations/:conversationId
-func (h *APIHandler) handleGetConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// handleGetConversation handles GET /conversations/:conversationId.
+func (h *Server) handleGetConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	currentUser := getUserFromContext(r.Context())
 	if currentUser == nil {
 		h.errorResponse(w, http.StatusUnauthorized, "Not authenticated")
@@ -100,13 +100,14 @@ func (h *APIHandler) handleGetConversation(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	conversation, err := h.database.FetchConversationDetails(conversationID, currentUser.Identifier)
+	conversation, err := h.database.FetchConversationDetails(r.Context(), conversationID, currentUser.Identifier)
 	if err != nil {
-		if errors.Is(err, db.ErrConversationNotFound) {
+		switch {
+		case errors.Is(err, db.ErrConversationNotFound):
 			h.errorResponse(w, http.StatusNotFound, "Conversation not found")
-		} else if errors.Is(err, db.ErrUserNotInConversation) {
+		case errors.Is(err, db.ErrUserNotInConversation):
 			h.errorResponse(w, http.StatusForbidden, "Not a member of this conversation")
-		} else {
+		default:
 			h.logger.WithError(err).Error("Failed to fetch conversation")
 			h.errorResponse(w, http.StatusInternalServerError, "Failed to fetch conversation")
 		}

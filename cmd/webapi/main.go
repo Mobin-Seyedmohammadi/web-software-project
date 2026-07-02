@@ -1,12 +1,25 @@
+// Command webapi runs the WASAText HTTP API server.
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/yourname/wasatext/service/api"
 	"github.com/yourname/wasatext/service/db"
+)
+
+// HTTP server timeouts. Set explicitly rather than relying on
+// http.ListenAndServe's defaults (none), which leave the server open to
+// slow-client resource exhaustion.
+const (
+	readHeaderTimeout = 5 * time.Second
+	readTimeout       = 15 * time.Second
+	writeTimeout      = 15 * time.Second
+	idleTimeout       = 60 * time.Second
 )
 
 func main() {
@@ -19,7 +32,8 @@ func main() {
 	})
 
 	if err := execute(logger); err != nil {
-		logger.WithError(err).Fatal("Application terminated with error")
+		logger.WithError(err).Error("Application terminated with error")
+		os.Exit(1)
 	}
 }
 
@@ -35,21 +49,27 @@ func execute(logger *logrus.Logger) error {
 	}
 
 	logger.WithField("dbPath", dbPath).Info("Initializing database")
+
 	database, err := db.NewDatabase(dbPath)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize database")
-		return err
+		return fmt.Errorf("failed to initialize database: %w", err)
 	}
-	defer database.Close()
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			logger.WithError(closeErr).Error("Failed to close database")
+		}
+	}()
 
 	logger.Info("Initializing API handler")
+
 	apiHandler, err := api.NewHandler(api.Config{
 		Database: database,
 		Logger:   logger,
 	})
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize API handler")
-		return err
+		return fmt.Errorf("failed to initialize API handler: %w", err)
 	}
 
 	if err := registerWebUI(apiHandler.Router(), logger); err != nil {
@@ -60,11 +80,20 @@ func execute(logger *logrus.Logger) error {
 	httpHandler := apiHandler.Handler()
 
 	serverAddr := ":" + serverPort
+	server := &http.Server{
+		Addr:              serverAddr,
+		Handler:           httpHandler,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
+
 	logger.WithField("port", serverPort).Info("Starting WASAText server")
 
-	if err := http.ListenAndServe(serverAddr, httpHandler); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		logger.WithError(err).Error("Server failed")
-		return err
+		return fmt.Errorf("server failed: %w", err)
 	}
 
 	return nil
