@@ -4,7 +4,7 @@ info:
   description: |
     WASAText is a modern messaging platform that enables users to communicate
     through text and photo messages in both private conversations and group chats.
-    
+
     This API provides endpoints for user authentication, message management,
     group operations, and conversation handling.
   version: "1.0"
@@ -36,7 +36,6 @@ components:
 
   schemas:
     # ================ Core Data Models ================
-    
     UserProfile:
       type: object
       description: User profile information
@@ -48,8 +47,9 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Unique user identifier
-          example: "usr-a1b2c3d4"
+          example: "a1b2c3d4-e5f6-47a8-89ab-cdef01234567"
         username:
           type: string
           minLength: 3
@@ -62,8 +62,9 @@ components:
           format: uri
           minLength: 0
           maxLength: 500
+          pattern: '^(https?://\S+|/photos/\S+)$'
           description: URL to user's profile photo
-          example: "/photos/user-photo.jpg"
+          example: "http://localhost:3000/photos/user-photo.jpg"
 
     ConversationItem:
       type: object
@@ -79,10 +80,12 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Unique conversation identifier
-          example: "conv-xyz789"
+          example: "b2c3d4e5-f6a7-48b9-9abc-def012345678"
         conversationType:
           type: string
+          pattern: '^(private|group)$'
           enum: [private, group]
           description: Type of conversation
           example: "private"
@@ -90,6 +93,7 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+          pattern: '^[\s\S]*$'
           description: Name to display (username or group name)
           example: "Bob"
         displayPhotoUrl:
@@ -97,17 +101,20 @@ components:
           format: uri
           minLength: 0
           maxLength: 500
+          pattern: '^(https?://\S+|/photos/\S+)$'
           description: Photo URL for the conversation
-          example: "/photos/bob-photo.jpg"
+          example: "http://localhost:3000/photos/bob-photo.jpg"
         lastMessageTimestamp:
           type: string
           format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$'
           description: When the last message was sent
           example: "2026-02-05T10:30:00Z"
         lastMessageSnippet:
           type: string
           minLength: 0
           maxLength: 200
+          pattern: '^[\s\S]*$'
           description: Preview text of the last message
           example: "See you tomorrow!"
         lastMessageIsPhoto:
@@ -129,21 +136,25 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Unique conversation identifier
         conversationType:
           type: string
+          pattern: '^(private|group)$'
           enum: [private, group]
           description: Type of conversation
         displayName:
           type: string
           minLength: 1
           maxLength: 100
+          pattern: '^[\s\S]*$'
           description: Conversation display name
         displayPhotoUrl:
           type: string
           format: uri
           minLength: 0
           maxLength: 500
+          pattern: '^(https?://\S+|/photos/\S+)$'
           description: Conversation photo URL
         participants:
           type: array
@@ -175,23 +186,27 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Unique message identifier
-          example: "msg-abc123"
+          example: "c3d4e5f6-a7b8-49ca-abcd-ef0123456789"
         senderId:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: ID of the message sender
         senderName:
           type: string
           minLength: 3
           maxLength: 16
+          pattern: '^[\s\S]*$'
           description: Name of the message sender
           example: "Charlie"
         textContent:
           type: string
           minLength: 0
           maxLength: 10000
+          pattern: '^[\s\S]*$'
           description: Text content of the message
           example: "Hello, how are you?"
         photoUrl:
@@ -199,16 +214,19 @@ components:
           format: uri
           minLength: 0
           maxLength: 500
+          pattern: '^(https?://\S+|/photos/\S+)$'
           description: URL to photo (if photo message)
         sentAt:
           type: string
           format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$'
           description: Timestamp when message was sent
           example: "2026-02-05T10:30:00Z"
         replyToId:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: ID of message being replied to
         replyPreview:
           $ref: '#/components/schemas/MessageSnippet'
@@ -216,9 +234,11 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: ID of original message (if forwarded)
         messageType:
           type: string
+          pattern: '^(user|system)$'
           enum: [user, system]
           default: user
           description: |
@@ -229,6 +249,7 @@ components:
           example: "user"
         deliveryStatus:
           type: string
+          pattern: '^(sent|received|read)$'
           enum: [sent, received, read]
           description: Message delivery status
           example: "read"
@@ -252,16 +273,19 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Message identifier
         senderName:
           type: string
           minLength: 3
           maxLength: 16
+          pattern: '^[\s\S]*$'
           description: Name of sender
         contentPreview:
           type: string
           minLength: 0
           maxLength: 100
+          pattern: '^[\s\S]*$'
           description: Short text preview
         hasPhoto:
           type: boolean
@@ -280,21 +304,25 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Unique reaction identifier
         userId:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: ID of user who reacted
         username:
           type: string
           minLength: 3
           maxLength: 16
+          pattern: '^[\s\S]*$'
           description: Name of user who reacted
         emoji:
           type: string
           minLength: 1
           maxLength: 20
+          pattern: '^[\s\S]*$'
           description: Emoji used for reaction
           example: "❤️"
 
@@ -310,17 +338,20 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           description: Unique group identifier
         groupName:
           type: string
           minLength: 1
           maxLength: 100
+          pattern: '^[\s\S]*$'
           description: Name of the group
         photoUrl:
           type: string
           format: uri
           minLength: 0
           maxLength: 500
+          pattern: '^(https?://\S+|/photos/\S+)$'
           description: Group photo URL
         participants:
           type: array
@@ -340,12 +371,12 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+          pattern: '^[\s\S]*$'
           description: Human-readable error message
           example: "User not found"
 
 paths:
   # ================ Authentication ================
-  
   /session:
     post:
       tags: [login]
@@ -360,6 +391,7 @@ paths:
           application/json:
             schema:
               type: object
+              description: Login request payload
               required:
                 - name
               properties:
@@ -377,6 +409,7 @@ paths:
             application/json:
               schema:
                 type: object
+                description: Login success response containing the bearer token identifier
                 required:
                   - identifier
                 properties:
@@ -384,8 +417,9 @@ paths:
                     type: string
                     minLength: 1
                     maxLength: 128
+                    pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
                     description: User identifier to use as bearer token
-                    example: "usr-abc123def"
+                    example: "d4e5f6a7-b8c9-4adb-bcde-f01234567890"
         '400':
           description: Bad request - invalid username
           content:
@@ -394,7 +428,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ================ User Profile ================
-  
   /users/me/username:
     put:
       tags: [user]
@@ -409,6 +442,7 @@ paths:
           application/json:
             schema:
               type: object
+              description: Username update request payload
               required:
                 - username
               properties:
@@ -459,12 +493,15 @@ paths:
           multipart/form-data:
             schema:
               type: object
+              description: Profile photo upload payload
               required:
                 - photo
               properties:
                 photo:
                   type: string
                   format: binary
+                  minLength: 1
+                  maxLength: 10485760
                   description: Photo file (JPEG, PNG, or GIF)
       responses:
         '200':
@@ -509,6 +546,7 @@ paths:
             type: string
             minLength: 0
             maxLength: 16
+            pattern: '^[\s\S]*$'
       responses:
         '200':
           description: List of matching users
@@ -516,11 +554,13 @@ paths:
             application/json:
               schema:
                 type: object
+                description: Search results wrapper
                 required:
                   - users
                 properties:
                   users:
                     type: array
+                    description: Matching user profiles
                     minItems: 0
                     maxItems: 1000
                     items:
@@ -533,7 +573,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ================ Conversations ================
-  
   /conversations:
     get:
       tags: [conversation]
@@ -549,11 +588,13 @@ paths:
             application/json:
               schema:
                 type: object
+                description: Conversation list wrapper
                 required:
                   - conversations
                 properties:
                   conversations:
                     type: array
+                    description: The user's conversations, most recent first
                     minItems: 0
                     maxItems: 1000
                     items:
@@ -578,6 +619,7 @@ paths:
           application/json:
             schema:
               type: object
+              description: New private conversation request payload
               required:
                 - userId
               properties:
@@ -585,6 +627,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 128
+                  pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
                   description: ID of user to start conversation with
       responses:
         '201':
@@ -629,6 +672,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       responses:
         '200':
           description: Conversation details
@@ -656,7 +700,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ================ Messages ================
-  
   /conversations/{conversationId}/messages:
     post:
       tags: [message]
@@ -674,26 +717,32 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
+              description: New message payload (text and/or photo)
               properties:
                 content:
                   type: string
                   minLength: 0
                   maxLength: 10000
+                  pattern: '^[\s\S]*$'
                   description: Text message content
                 photo:
                   type: string
                   format: binary
+                  minLength: 1
+                  maxLength: 10485760
                   description: Photo file
                 replyTo:
                   type: string
                   minLength: 1
                   maxLength: 128
+                  pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
                   description: ID of message to reply to
       responses:
         '201':
@@ -750,6 +799,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       responses:
         '204':
           description: Message deleted successfully
@@ -789,12 +839,14 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              description: Forward-message request payload
               required:
                 - targetConversationId
               properties:
@@ -802,6 +854,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 128
+                  pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
                   description: ID of conversation to forward to
       responses:
         '201':
@@ -852,12 +905,14 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              description: Add-reaction request payload
               required:
                 - emoticon
               properties:
@@ -865,6 +920,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 20
+                  pattern: '^[\s\S]*$'
                   description: Emoji to react with
                   example: "👍"
       responses:
@@ -916,6 +972,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
         - name: commentId
           in: path
           required: true
@@ -924,6 +981,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       responses:
         '204':
           description: Reaction removed successfully
@@ -947,7 +1005,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ================ Groups ================
-  
   /groups:
     post:
       tags: [group]
@@ -962,6 +1019,7 @@ paths:
           application/json:
             schema:
               type: object
+              description: New group request payload
               required:
                 - name
               properties:
@@ -969,6 +1027,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 100
+                  pattern: '^[\s\S]*$'
                   description: Group name
                   example: "Study Group"
                 memberIds:
@@ -980,6 +1039,7 @@ paths:
                     type: string
                     minLength: 1
                     maxLength: 128
+                    pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       responses:
         '201':
           description: Group created successfully
@@ -1017,12 +1077,14 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              description: Add-member request payload
               required:
                 - userId
               properties:
@@ -1030,6 +1092,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 128
+                  pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
                   description: ID of user to add
       responses:
         '201':
@@ -1080,6 +1143,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       responses:
         '204':
           description: Successfully left the group
@@ -1119,12 +1183,14 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              description: Rename-group request payload
               required:
                 - name
               properties:
@@ -1132,6 +1198,7 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 100
+                  pattern: '^[\s\S]*$'
                   description: New group name
       responses:
         '200':
@@ -1182,18 +1249,22 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
+              description: Group photo upload payload
               required:
                 - photo
               properties:
                 photo:
                   type: string
                   format: binary
+                  minLength: 1
+                  maxLength: 10485760
                   description: Photo file (JPEG, PNG, or GIF)
       responses:
         '200':
