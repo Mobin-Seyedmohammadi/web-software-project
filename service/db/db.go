@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -737,7 +738,11 @@ func (db *SQLiteDatabase) InitiatePrivateConversation(user1ID, user2ID string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			log.Printf("failed to rollback transaction: %v", rbErr)
+		}
+	}()
 
 	if _, err = tx.Exec(
 		"INSERT INTO conversations (id, conv_type, created_at) VALUES (?, 'private', ?)",
@@ -1034,7 +1039,11 @@ func (db *SQLiteDatabase) CreateNewGroup(name, creatorID string, memberIDs []str
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			log.Printf("failed to rollback transaction: %v", rbErr)
+		}
+	}()
 
 	if _, err = tx.Exec(
 		"INSERT INTO conversations (id, conv_type, group_name, created_at) VALUES (?, 'group', ?, ?)",
@@ -1134,7 +1143,11 @@ func (db *SQLiteDatabase) RemoveGroupMember(groupID, userID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			log.Printf("failed to rollback transaction: %v", rbErr)
+		}
+	}()
 
 	result, err := tx.Exec(
 		"DELETE FROM conversation_participants WHERE conversation_id = ? AND user_id = ?",

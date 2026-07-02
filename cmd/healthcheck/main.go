@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
-func main() {
+func run(logger *logrus.Logger) int {
 	serverURL := os.Getenv("SERVER_URL")
 	if serverURL == "" {
 		serverURL = "http://localhost:3000"
@@ -21,16 +22,21 @@ func main() {
 
 	resp, err := client.Get(healthEndpoint)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
-		os.Exit(1)
+		logger.WithError(err).Error("Health check failed")
+		return 1
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		fmt.Println("Health check passed")
-		os.Exit(0)
+		logger.Info("Health check passed")
+		return 0
 	}
 
-	fmt.Fprintf(os.Stderr, "Health check failed with status code: %d\n", resp.StatusCode)
-	os.Exit(1)
+	logger.WithField("statusCode", resp.StatusCode).Error("Health check failed")
+	return 1
+}
+
+func main() {
+	logger := logrus.New()
+	os.Exit(run(logger))
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -115,9 +116,9 @@ func (h *APIHandler) handleDeleteMessage(w http.ResponseWriter, r *http.Request,
 
 	err := h.database.RemoveMessage(messageID, currentUser.Identifier)
 	if err != nil {
-		if err == db.ErrUnauthorized {
+		if errors.Is(err, db.ErrUnauthorized) {
 			h.errorResponse(w, http.StatusForbidden, "Not authorized to delete this message")
-		} else if err == db.ErrMessageNotFound {
+		} else if errors.Is(err, db.ErrMessageNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Message not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to delete message")
@@ -180,7 +181,7 @@ func (h *APIHandler) handleForwardMessage(w http.ResponseWriter, r *http.Request
 	// Check if original message exists and user has access
 	originalMsg, err := h.database.FetchMessage(messageID)
 	if err != nil {
-		if err == db.ErrMessageNotFound {
+		if errors.Is(err, db.ErrMessageNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Message not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to fetch message")
@@ -241,7 +242,7 @@ func (h *APIHandler) handleAddReaction(w http.ResponseWriter, r *http.Request, p
 	// Check if message exists and user has access
 	msg, err := h.database.FetchMessage(messageID)
 	if err != nil {
-		if err == db.ErrMessageNotFound {
+		if errors.Is(err, db.ErrMessageNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Message not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to fetch message")
@@ -284,9 +285,9 @@ func (h *APIHandler) handleRemoveReaction(w http.ResponseWriter, r *http.Request
 
 	err := h.database.RemoveReaction(commentID, currentUser.Identifier)
 	if err != nil {
-		if err == db.ErrUnauthorized {
+		if errors.Is(err, db.ErrUnauthorized) {
 			h.errorResponse(w, http.StatusForbidden, "Not authorized to remove this reaction")
-		} else if err == db.ErrCommentNotFound {
+		} else if errors.Is(err, db.ErrCommentNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Reaction not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to remove reaction")

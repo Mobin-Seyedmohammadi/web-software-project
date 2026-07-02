@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -93,7 +94,7 @@ func (h *APIHandler) handleAddGroupMember(w http.ResponseWriter, r *http.Request
 	// Check if user exists
 	addedUser, err := h.database.FindUserByID(req.UserID)
 	if err != nil {
-		if err == db.ErrUserNotFound {
+		if errors.Is(err, db.ErrUserNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "User not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to find user")
@@ -104,9 +105,9 @@ func (h *APIHandler) handleAddGroupMember(w http.ResponseWriter, r *http.Request
 
 	err = h.database.AddGroupMember(groupID, req.UserID, currentUser.Identifier)
 	if err != nil {
-		if err == db.ErrUnauthorized {
+		if errors.Is(err, db.ErrUnauthorized) {
 			h.errorResponse(w, http.StatusForbidden, "Not authorized to add members to this group")
-		} else if err == db.ErrGroupNotFound {
+		} else if errors.Is(err, db.ErrGroupNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Group not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to add group member")
@@ -171,7 +172,7 @@ func (h *APIHandler) handleLeaveGroup(w http.ResponseWriter, r *http.Request, ps
 
 	err = h.database.RemoveGroupMember(groupID, currentUser.Identifier)
 	if err != nil {
-		if err == db.ErrGroupNotFound {
+		if errors.Is(err, db.ErrGroupNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Group not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to leave group")
@@ -220,9 +221,9 @@ func (h *APIHandler) handleUpdateGroupName(w http.ResponseWriter, r *http.Reques
 
 	err := h.database.RenameGroup(groupID, currentUser.Identifier, req.Name)
 	if err != nil {
-		if err == db.ErrUnauthorized {
+		if errors.Is(err, db.ErrUnauthorized) {
 			h.errorResponse(w, http.StatusForbidden, "Not authorized to rename this group")
-		} else if err == db.ErrGroupNotFound {
+		} else if errors.Is(err, db.ErrGroupNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Group not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to rename group")
@@ -280,9 +281,9 @@ func (h *APIHandler) handleUploadGroupPhoto(w http.ResponseWriter, r *http.Reque
 
 	err = h.database.SetGroupPhoto(groupID, currentUser.Identifier, photoURL)
 	if err != nil {
-		if err == db.ErrUnauthorized {
+		if errors.Is(err, db.ErrUnauthorized) {
 			h.errorResponse(w, http.StatusForbidden, "Not authorized to update this group's photo")
-		} else if err == db.ErrGroupNotFound {
+		} else if errors.Is(err, db.ErrGroupNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Group not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to update group photo")

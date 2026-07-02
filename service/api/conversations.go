@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -60,7 +61,7 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 	// Check if target user exists
 	_, err := h.database.FindUserByID(req.UserID)
 	if err != nil {
-		if err == db.ErrUserNotFound {
+		if errors.Is(err, db.ErrUserNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "User not found")
 		} else {
 			h.logger.WithError(err).Error("Failed to find user")
@@ -71,7 +72,7 @@ func (h *APIHandler) handleCreateConversation(w http.ResponseWriter, r *http.Req
 
 	conversation, err := h.database.InitiatePrivateConversation(currentUser.Identifier, req.UserID)
 	if err != nil {
-		if err == db.ErrCannotMessageSelf {
+		if errors.Is(err, db.ErrCannotMessageSelf) {
 			h.errorResponse(w, http.StatusBadRequest, "Cannot start a conversation with yourself")
 		} else {
 			h.logger.WithError(err).Error("Failed to create conversation")
@@ -101,9 +102,9 @@ func (h *APIHandler) handleGetConversation(w http.ResponseWriter, r *http.Reques
 
 	conversation, err := h.database.FetchConversationDetails(conversationID, currentUser.Identifier)
 	if err != nil {
-		if err == db.ErrConversationNotFound {
+		if errors.Is(err, db.ErrConversationNotFound) {
 			h.errorResponse(w, http.StatusNotFound, "Conversation not found")
-		} else if err == db.ErrUserNotInConversation {
+		} else if errors.Is(err, db.ErrUserNotInConversation) {
 			h.errorResponse(w, http.StatusForbidden, "Not a member of this conversation")
 		} else {
 			h.logger.WithError(err).Error("Failed to fetch conversation")

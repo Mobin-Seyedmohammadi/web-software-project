@@ -104,7 +104,9 @@ func (h *APIHandler) saveUploadedFile(file io.Reader, filename string) (string, 
 	defer outFile.Close()
 
 	if _, err := io.Copy(outFile, file); err != nil {
-		os.Remove(filePath)
+		if removeErr := os.Remove(filePath); removeErr != nil {
+			h.logger.WithError(removeErr).Error("Failed to remove partially written file")
+		}
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 

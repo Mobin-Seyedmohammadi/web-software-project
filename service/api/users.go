@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -58,7 +59,7 @@ func (h *APIHandler) handleUpdateUsername(w http.ResponseWriter, r *http.Request
 
 	updatedUser, err := h.database.ChangeUsername(currentUser.Identifier, req.Username)
 	if err != nil {
-		if err == db.ErrUsernameExists {
+		if errors.Is(err, db.ErrUsernameExists) {
 			h.errorResponse(w, http.StatusConflict, "Username already taken")
 		} else {
 			h.logger.WithError(err).Error("Failed to update username")
