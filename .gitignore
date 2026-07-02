@@ -5,9 +5,9 @@
 
 # Go
 bin/
-wasatext-server
-webapi
-healthcheck
+/wasatext-server
+/webapi
+/healthcheck
 *.exe
 *.test
 *.prof
