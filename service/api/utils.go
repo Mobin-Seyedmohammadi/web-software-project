@@ -134,12 +134,6 @@ func EnsurePhotosDir() error {
 	if err := os.MkdirAll(absDir, photoDirPerm); err != nil {
 		return fmt.Errorf("failed to create photos directory %q: %w", absDir, err)
 	}
-	// MkdirAll is a no-op if the directory already exists (e.g. a
-	// freshly-mounted, root-owned Docker volume), so it can't be trusted to
-	// have applied photoDirPerm; set it explicitly instead.
-	if err := os.Chmod(absDir, photoDirPerm); err != nil {
-		return fmt.Errorf("failed to set permissions on photos directory %q: %w", absDir, err)
-	}
 
 	probePath := filepath.Join(absDir, ".write-test")
 	//nolint:gosec // probePath is absDir + a fixed literal suffix, not user input

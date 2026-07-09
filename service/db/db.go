@@ -305,13 +305,6 @@ func ensureWritableDir(dirPath string) error {
 		return fmt.Errorf("failed to create directory %q: %w", dirPath, err)
 	}
 
-	// MkdirAll is a no-op if the directory already exists (e.g. a
-	// freshly-mounted, root-owned Docker volume), so it can't be trusted to
-	// have applied defaultDirPerm; set it explicitly instead.
-	if err := os.Chmod(dirPath, defaultDirPerm); err != nil {
-		return fmt.Errorf("failed to set permissions on directory %q: %w", dirPath, err)
-	}
-
 	probePath := filepath.Join(dirPath, ".write-test")
 	//nolint:gosec // probePath is dirPath + a fixed literal suffix, not user input
 	probe, err := os.Create(probePath)
